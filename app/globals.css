@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "../packages/tokens/tokens.css";
+
+@theme {
+  --color-brand-accent: var(--brand-accent);
+  --color-shell-accent: var(--shell-accent);
+}
+
+body {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  background: var(--color-bg, #fff);
+  color: var(--color-fg, #111);
+}

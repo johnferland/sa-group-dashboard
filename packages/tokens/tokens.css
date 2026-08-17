@@ -1,0 +1,30 @@
+/*
+  Shared shell stays on the SA Appliances brand system (per the project plan). Each brand page
+  overrides --brand-accent / --brand-logo via a data-brand attribute on a wrapping element —
+  see components/brand-theme-provider.tsx once it's built in Phase 1.
+*/
+
+:root {
+  --shell-accent: #0f62fe;
+  --brand-accent: var(--shell-accent);
+  --color-bg: #ffffff;
+  --color-fg: #111111;
+  --radius-md: 0.5rem;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+[data-brand="sa-appliances"] {
+  --brand-accent: #0f62fe; /* TODO: replace with real brand accent */
+}
+
+[data-brand="odl-ortho"] {
+  --brand-accent: #0f62fe; /* TODO: replace with real brand accent */
+}
+
+[data-brand="ida"] {
+  --brand-accent: #0f62fe; /* TODO: replace with real brand accent */
+}
+
+[data-brand="edl"] {
+  --brand-accent: #0f62fe; /* TODO: replace with real brand accent */
+}

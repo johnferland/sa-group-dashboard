@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/cron/sync-ga4", "schedule": "0 12 * * 1" },
+    { "path": "/api/cron/sync-gsc", "schedule": "0 12 * * 1" },
+    { "path": "/api/cron/sync-google-ads", "schedule": "0 12 * * 1" },
+    { "path": "/api/cron/sync-meta", "schedule": "0 12 * * 1" }
+  ]
+}

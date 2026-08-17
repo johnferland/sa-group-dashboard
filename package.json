@@ -1,0 +1,32 @@
+{
+  "name": "sa-group-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.31.4",
+    "@supabase/supabase-js": "^2.58.0",
+    "date-fns": "^4.1.0",
+    "googleapis": "^161.0.0",
+    "next": "^15.5.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^2.15.0",
+    "svix": "^1.45.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.5.4",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.7.2"
+  }
+}
