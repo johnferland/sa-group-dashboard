@@ -4,3 +4,7 @@ node_modules
 .env.local
 .vercel
 *.log
+*.tsbuildinfo
+
+# clerk configuration (can include secrets)
+/.clerk/

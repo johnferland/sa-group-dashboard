@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function CredentialsAdminPage() {
+export default function BrandsAdminRedirect() {
   redirect("/admin");
 }

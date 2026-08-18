@@ -1,0 +1,14 @@
+/**
+ * Drop Claude Design / brand-site tokens here when they exist.
+ * Override semantic names (--color-accent, --font-sans, --radius-md, etc.)
+ * so every .ds-* component picks them up without a JSX change.
+ *
+ * Example:
+ *   :root {
+ *     --color-accent: var(--sa-group-primary);
+ *     --font-sans: var(--sa-group-font);
+ *     --radius-md: var(--sa-group-radius);
+ *   }
+ */
+:root {
+}

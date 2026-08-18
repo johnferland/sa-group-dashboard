@@ -1,0 +1,39 @@
+/**
+ * Component tokens — local aliases so buttons/nav/cards can diverge from
+ * the global radius or accent later without rewriting JSX.
+ */
+:root {
+  --button-bg: var(--color-accent);
+  --button-bg-hover: var(--color-accent-hover);
+  --button-fg: var(--color-on-accent);
+  --button-radius: var(--radius-md);
+  --button-px: var(--space-4);
+  --button-height: var(--control-height);
+  --button-weight: var(--weight-semibold);
+
+  --input-bg: var(--color-surface);
+  --input-border: var(--color-border-strong);
+  --input-radius: var(--radius-md);
+  --input-height: var(--control-height);
+
+  --card-bg: var(--color-surface);
+  --card-border: var(--color-border);
+  --card-radius: var(--radius-lg);
+  --card-pad: var(--space-4);
+  --card-shadow: var(--shadow-sm);
+
+  --nav-bg: var(--color-surface);
+  --nav-border: var(--color-border);
+  --nav-fg: var(--color-text);
+  --nav-muted: var(--color-text-muted);
+  --nav-active: var(--color-accent);
+
+  --menu-bg: var(--color-surface);
+  --menu-border: var(--color-border);
+  --menu-radius: var(--radius-md);
+  --menu-shadow: var(--shadow-md);
+  --menu-hover: var(--color-bg-subtle);
+
+  --table-bg: var(--color-surface);
+  --table-rule: var(--color-border);
+}

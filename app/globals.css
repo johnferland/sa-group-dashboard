@@ -1,13 +1,28 @@
 @import "tailwindcss";
 @import "../packages/tokens/tokens.css";
+@import "../packages/tokens/ui.css";
 
 @theme {
-  --color-brand-accent: var(--brand-accent);
-  --color-shell-accent: var(--shell-accent);
+  --color-accent: var(--color-accent);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-text: var(--color-text);
+  --font-sans: var(--font-sans);
+  --radius-md: var(--radius-md);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
-  font-family: var(--font-sans, system-ui, sans-serif);
-  background: var(--color-bg, #fff);
-  color: var(--color-fg, #111);
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: var(--leading-normal);
 }
+
+a { color: inherit; }

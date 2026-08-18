@@ -1,0 +1,46 @@
+/**
+ * Semantic tokens — the inheritance contract.
+ * Components only read these names. When Claude Design lands, map their
+ * published variables onto this layer in brand.override.css (or rewrite
+ * the var() sources here). Component class names stay stable.
+ */
+:root {
+  --color-bg: var(--slate-50);
+  --color-bg-subtle: var(--slate-100);
+  --color-surface: var(--white);
+  --color-text: var(--slate-900);
+  --color-text-muted: var(--slate-500);
+  --color-border: var(--slate-200);
+  --color-border-strong: var(--slate-300);
+
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  --color-on-accent: var(--white);
+
+  --color-success: var(--green-600);
+  --color-danger: var(--red-600);
+
+  --font-sans: var(--font-sans-stack);
+  --font-display: var(--font-display-stack);
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.75rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --page-max: 72rem;
+  --page-pad-x: var(--space-8);
+  --page-pad-y: var(--space-6);
+
+  --control-height: 2.25rem;
+  --nav-height: 3.5rem;
+}

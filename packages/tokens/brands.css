@@ -1,0 +1,23 @@
+/**
+ * Lab/company accent only. The parent SA Group shell stays on semantic tokens.
+ * Swap --color-accent here when each lab's brand color is final.
+ */
+[data-brand="sa-appliances"] {
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+}
+
+[data-brand="odl-ortho"] {
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+}
+
+[data-brand="ida"] {
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+}
+
+[data-brand="edl"] {
+  --color-accent: var(--blue-600);
+  --color-accent-hover: var(--blue-700);
+}

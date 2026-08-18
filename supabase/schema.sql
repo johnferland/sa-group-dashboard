@@ -10,12 +10,13 @@ create table brands (
   domain text not null,
   accent_color text not null,
   logo_url text,
+  is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
 create table users (
   id uuid primary key default gen_random_uuid(),
-  clerk_user_id text unique not null,
+  clerk_user_id text unique,
   email text not null,
   role text not null check (role in ('super_admin', 'exec', 'lab_manager')),
   brand_id uuid references brands(id), -- null for super_admin/exec

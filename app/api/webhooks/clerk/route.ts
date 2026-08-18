@@ -35,8 +35,7 @@ export async function POST(request: Request) {
       await supabase
         .from("users")
         .update({ clerk_user_id: event.data.id })
-        .eq("email", email)
-        .is("clerk_user_id", null);
+        .ilike("email", email);
     }
   }
 

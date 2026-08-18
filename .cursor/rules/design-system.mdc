@@ -1,0 +1,15 @@
+---
+description: Use the SA Group token + component design system; never hardcode visual styles.
+alwaysApply: true
+---
+
+# Design system
+
+All UI goes through `components/ui` and CSS variables in `packages/tokens`.
+
+- Do not hardcode hex, px radii, or font families in pages or components.
+- Use semantic tokens (`--color-accent`, `--color-text`, `--radius-md`, `--font-sans`).
+- Prefer `Button`, `Field`, `Input`, `Select`, `Card`, `Panel`, `Page`, `Nav`, `Table`, `Alert`.
+- Class prefix is `ds-`.
+- When the parent-company Claude Design system is ready, map it in `packages/tokens/brand.override.css` — do not restyle individual screens.
+- Per-lab color is `data-brand` + `packages/tokens/brands.css` only.
