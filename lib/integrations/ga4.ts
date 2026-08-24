@@ -1,14 +1,16 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { formatGa4Date, getGoogleAccessToken } from "@/lib/integrations/google-auth";
 
-const AI_REFERRAL_PATTERNS = [
-  { key: "chatgpt", match: "chatgpt.com" },
-  { key: "perplexity", match: "perplexity.ai" },
-  { key: "gemini", match: "gemini.google.com" },
-  { key: "claude", match: "claude.ai" },
-  { key: "copilot", match: "copilot.microsoft.com" },
-  { key: "bing", match: "bing.com" },
+export const AI_REFERRAL_PATTERNS = [
+  { key: "chatgpt", match: "chatgpt.com", label: "ChatGPT" },
+  { key: "gemini", match: "gemini.google.com", label: "Gemini" },
+  { key: "perplexity", match: "perplexity.ai", label: "Perplexity" },
+  { key: "claude", match: "claude.ai", label: "Claude" },
+  { key: "copilot", match: "copilot.microsoft.com", label: "Copilot" },
+  { key: "bing", match: "bing.com", label: "Bing" },
 ] as const;
+
+export type AiReferralKey = (typeof AI_REFERRAL_PATTERNS)[number]["key"];
 
 type RunReportResponse = {
   rows?: Array<{
@@ -62,18 +64,42 @@ async function fetchDailySessions(propertyId: string, accessToken: string, start
   const report = await runReport(propertyId, accessToken, {
     dateRanges: [{ startDate, endDate }],
     dimensions: [{ name: "date" }],
-    metrics: [{ name: "sessions" }, { name: "keyEvents" }],
+    metrics: [{ name: "sessions" }, { name: "keyEvents" }, { name: "newUsers" }],
     limit: 1000,
   });
 
-  const byDate = new Map<string, { sessions: number; conversions: number }>();
+  const byDate = new Map<string, { sessions: number; conversions: number; newUsers: number }>();
   for (const row of report.rows ?? []) {
     const date = formatGa4Date(row.dimensionValues?.[0]?.value ?? "");
     if (!date) continue;
     byDate.set(date, {
       sessions: Number(row.metricValues?.[0]?.value ?? 0),
       conversions: Number(row.metricValues?.[1]?.value ?? 0),
+      newUsers: Number(row.metricValues?.[2]?.value ?? 0),
     });
+  }
+  return byDate;
+}
+
+async function fetchDailyOrganicSessions(propertyId: string, accessToken: string, startDate: string, endDate: string) {
+  const report = await runReport(propertyId, accessToken, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "date" }],
+    metrics: [{ name: "sessions" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "sessionDefaultChannelGroup",
+        stringFilter: { matchType: "EXACT", value: "Organic Search" },
+      },
+    },
+    limit: 1000,
+  });
+
+  const byDate = new Map<string, number>();
+  for (const row of report.rows ?? []) {
+    const date = formatGa4Date(row.dimensionValues?.[0]?.value ?? "");
+    if (!date) continue;
+    byDate.set(date, Number(row.metricValues?.[0]?.value ?? 0));
   }
   return byDate;
 }
@@ -126,16 +152,20 @@ export async function syncGa4ForBrand(
 
   const propertyId = normalizePropertyId(creds.ga4_property_id as string);
   const accessToken = await getGoogleAccessToken();
-  const [daily, aiByDate] = await Promise.all([
+  const [daily, organicByDate, aiByDate] = await Promise.all([
     fetchDailySessions(propertyId, accessToken, startDate, endDate),
+    fetchDailyOrganicSessions(propertyId, accessToken, startDate, endDate),
     fetchDailyAiReferrals(propertyId, accessToken, startDate, endDate),
   ]);
 
-  const rows = [...daily.entries()].map(([date, metrics]) => ({
+  const dates = new Set([...daily.keys(), ...organicByDate.keys(), ...aiByDate.keys()]);
+  const rows = [...dates].map((date) => ({
     brand_id: brandId,
     date,
-    sessions: metrics.sessions,
-    conversions: metrics.conversions,
+    sessions: daily.get(date)?.sessions ?? 0,
+    conversions: daily.get(date)?.conversions ?? 0,
+    organic_sessions: organicByDate.get(date) ?? 0,
+    new_users: daily.get(date)?.newUsers ?? 0,
     ai_referral_breakdown: aiByDate.get(date) ?? {},
   }));
 

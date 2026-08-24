@@ -47,6 +47,8 @@ create table ga4_metrics (
   date date not null,
   sessions integer not null default 0,
   conversions integer not null default 0,
+  organic_sessions integer not null default 0,
+  new_users integer not null default 0,
   ai_referral_breakdown jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   unique (brand_id, date)
@@ -60,6 +62,8 @@ create table gsc_metrics (
   impressions integer not null default 0,
   ctr numeric not null default 0,
   avg_position numeric,
+  keywords_top3 integer not null default 0,
+  total_keywords integer not null default 0,
   created_at timestamptz not null default now(),
   unique (brand_id, date)
 );
@@ -72,6 +76,7 @@ create table ads_metrics (
   spend numeric not null default 0,
   leads integer not null default 0,
   clicks integer not null default 0,
+  impressions integer not null default 0,
   created_at timestamptz not null default now(),
   unique (brand_id, date, source)
 );

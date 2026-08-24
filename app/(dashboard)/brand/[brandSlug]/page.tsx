@@ -7,7 +7,6 @@ import { PeriodToggle } from "@/components/period-toggle";
 import {
   Alert,
   Button,
-  EmptyCard,
   Field,
   Input,
   MetricCard,
@@ -19,6 +18,7 @@ import {
   TextMuted,
 } from "@/components/ui";
 import { saveWeeklyLeadsAction } from "./actions";
+import { AI_REFERRAL_PATTERNS } from "@/lib/integrations/ga4";
 
 export default async function BrandDashboard({
   params,
@@ -63,7 +63,6 @@ export default async function BrandDashboard({
     listRecentLeads(brand.id as string),
   ]);
   const canEnterLeads = canLogWeeklyLeads(user, brand.id as string);
-  const aiEntries = Object.entries(metrics.aiReferrals);
 
   return (
     <Page brand={brandSlug}>
@@ -83,8 +82,13 @@ export default async function BrandDashboard({
         </div>
       </Section>
 
-      <Section title="SEO">
+      <Section title="Search">
         <div className="ds-grid">
+          <MetricCard label="Keywords top 3" metric={metrics.keywordsTop3} />
+          <MetricCard label="Organic reach" metric={metrics.organicReach} />
+          <MetricCard label="Organic traffic" metric={metrics.organicTraffic} />
+          <MetricCard label="New users" metric={metrics.newUsers} />
+          <MetricCard label="Total keywords" metric={metrics.totalKeywords} />
           <MetricCard label="Clicks" metric={metrics.clicks} />
           <MetricCard label="Impressions" metric={metrics.impressions} />
           <MetricCard label="CTR" metric={metrics.ctr} digits={1} suffix="%" />
@@ -92,32 +96,33 @@ export default async function BrandDashboard({
         </div>
       </Section>
 
-      <Section title="Ads">
+      <Section title="Google Ads">
         <div className="ds-grid">
-          {metrics.googleSpend.current || metrics.metaSpend.current || metrics.adLeads.current ? (
-            <>
-              <MetricCard label="Google spend" metric={metrics.googleSpend} digits={0} prefix="$" />
-              <MetricCard label="Meta spend" metric={metrics.metaSpend} digits={0} prefix="$" />
-              <MetricCard label="Ad leads" metric={metrics.adLeads} />
-            </>
-          ) : (
-            <EmptyCard label="Paid ads" note="No Google Ads / Meta IDs synced yet" />
-          )}
+          <MetricCard label="Ad spend" metric={metrics.googleSpend} digits={2} prefix="$" />
+          <MetricCard label="Impressions" metric={metrics.googleImpressions} />
+          <MetricCard label="Clicks" metric={metrics.googleClicks} />
+          <MetricCard label="Conversions" metric={metrics.googleConversions} />
+          <MetricCard label="Cost per conversion" metric={metrics.googleCostPerConversion} digits={2} prefix="$" />
+        </div>
+      </Section>
+
+      <Section title="Meta Ads">
+        <div className="ds-grid">
+          <MetricCard label="Ad spend" metric={metrics.metaSpend} digits={2} prefix="$" />
+          <MetricCard label="Impressions" metric={metrics.metaImpressions} />
+          <MetricCard label="Clicks" metric={metrics.metaClicks} />
+          <MetricCard label="Leads" metric={metrics.metaLeads} />
+          <MetricCard label="CTR" metric={metrics.metaCtr} digits={2} suffix="%" />
+          <MetricCard label="Cost per lead" metric={metrics.metaCostPerLead} digits={2} prefix="$" />
         </div>
       </Section>
 
       <Section title="AI visibility">
         <div className="ds-grid">
-          {aiEntries.length ? (
-            aiEntries.map(([source, sessions]) => (
-              <EmptyCard key={source} label={source} value={String(sessions)} note="AI referral sessions" />
-            ))
-          ) : (
-            <EmptyCard
-              label="AI referrals"
-              note="No ChatGPT / Gemini / Claude / Perplexity / Copilot / Bing sessions in this period"
-            />
-          )}
+          <MetricCard label="Total AI referral traffic" metric={metrics.aiTotal} />
+          {AI_REFERRAL_PATTERNS.map((pattern) => (
+            <MetricCard key={pattern.key} label={pattern.label} metric={metrics.aiReferrals[pattern.key]} />
+          ))}
         </div>
       </Section>
 

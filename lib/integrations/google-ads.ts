@@ -7,6 +7,7 @@ type AdsSearchResponse = {
     metrics?: {
       costMicros?: string | number;
       clicks?: string | number;
+      impressions?: string | number;
       conversions?: string | number;
     };
   }>;
@@ -82,7 +83,7 @@ export async function syncGoogleAdsForBrand(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query: `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`,
+        query: `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`,
       }),
     },
   );
@@ -92,13 +93,14 @@ export async function syncGoogleAdsForBrand(
     throw new Error(adsErrorMessage(data, response.status));
   }
 
-  const byDate = new Map<string, { spend: number; clicks: number; leads: number }>();
+  const byDate = new Map<string, { spend: number; clicks: number; impressions: number; leads: number }>();
   for (const row of data.results ?? []) {
     const date = row.segments?.date;
     if (!date) continue;
-    const current = byDate.get(date) ?? { spend: 0, clicks: 0, leads: 0 };
+    const current = byDate.get(date) ?? { spend: 0, clicks: 0, impressions: 0, leads: 0 };
     current.spend += Number(row.metrics?.costMicros ?? 0) / 1_000_000;
     current.clicks += Number(row.metrics?.clicks ?? 0);
+    current.impressions += Number(row.metrics?.impressions ?? 0);
     current.leads += Math.round(Number(row.metrics?.conversions ?? 0));
     byDate.set(date, current);
   }
@@ -109,6 +111,7 @@ export async function syncGoogleAdsForBrand(
     source: "google" as const,
     spend: metrics.spend,
     clicks: Math.round(metrics.clicks),
+    impressions: Math.round(metrics.impressions),
     leads: metrics.leads,
   }));
 

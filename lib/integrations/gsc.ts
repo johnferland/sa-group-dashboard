@@ -40,6 +40,8 @@ async function queryGsc(
   accessToken: string,
   startDate: string,
   endDate: string,
+  dimensions: string[],
+  rowLimit = 1000,
 ): Promise<GscQueryResponse> {
   const encodedSite = encodeURIComponent(siteUrl);
   const response = await fetch(
@@ -53,8 +55,8 @@ async function queryGsc(
       body: JSON.stringify({
         startDate,
         endDate,
-        dimensions: ["date"],
-        rowLimit: 1000,
+        dimensions,
+        rowLimit,
       }),
     },
   );
@@ -63,6 +65,19 @@ async function queryGsc(
     throw new Error(data.error?.message ?? `GSC API error ${response.status}`);
   }
   return data;
+}
+
+function keywordCountsByDate(report: GscQueryResponse): Map<string, { keywordsTop3: number; totalKeywords: number }> {
+  const byDate = new Map<string, { keywordsTop3: number; totalKeywords: number }>();
+  for (const row of report.rows ?? []) {
+    const date = row.keys?.[0] ?? "";
+    if (!date) continue;
+    const current = byDate.get(date) ?? { keywordsTop3: 0, totalKeywords: 0 };
+    current.totalKeywords += 1;
+    if (Number(row.position ?? 100) <= 3) current.keywordsTop3 += 1;
+    byDate.set(date, current);
+  }
+  return byDate;
 }
 
 async function queryGscWithFallback(
@@ -76,7 +91,7 @@ async function queryGscWithFallback(
 
   for (const candidate of candidates) {
     try {
-      const report = await queryGsc(candidate, accessToken, startDate, endDate);
+      const report = await queryGsc(candidate, accessToken, startDate, endDate, ["date"]);
       return { siteUrl: candidate, report };
     } catch (error) {
       lastError = `${candidate}: ${error instanceof Error ? error.message : "failed"}`;
@@ -116,15 +131,29 @@ export async function syncGscForBrand(
       .eq("brand_id", brandId);
   }
 
+  let keywordByDate = new Map<string, { keywordsTop3: number; totalKeywords: number }>();
+  try {
+    const queryReport = await queryGsc(siteUrl, accessToken, startDate, endDate, ["date", "query"], 25000);
+    keywordByDate = keywordCountsByDate(queryReport);
+  } catch {
+    keywordByDate = new Map();
+  }
+
   const rows = (report.rows ?? [])
-    .map((row) => ({
-      brand_id: brandId,
-      date: row.keys?.[0] ?? "",
-      clicks: Math.round(Number(row.clicks ?? 0)),
-      impressions: Math.round(Number(row.impressions ?? 0)),
-      ctr: Number(row.ctr ?? 0),
-      avg_position: row.position == null ? null : Number(row.position),
-    }))
+    .map((row) => {
+      const date = row.keys?.[0] ?? "";
+      const keywords = keywordByDate.get(date);
+      return {
+        brand_id: brandId,
+        date,
+        clicks: Math.round(Number(row.clicks ?? 0)),
+        impressions: Math.round(Number(row.impressions ?? 0)),
+        ctr: Number(row.ctr ?? 0),
+        avg_position: row.position == null ? null : Number(row.position),
+        keywords_top3: keywords?.keywordsTop3 ?? 0,
+        total_keywords: keywords?.totalKeywords ?? 0,
+      };
+    })
     .filter((row) => row.date);
 
   if (rows.length > 0) {
