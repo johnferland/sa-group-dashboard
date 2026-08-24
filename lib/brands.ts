@@ -41,6 +41,14 @@ function emptyToNull(value: string | null | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
+/** Ads Manager shows digits; the Marketing API uses act_{id}. Store digits only. */
+function normalizeMetaAdAccountId(value: string | null | undefined): string | null {
+  const trimmed = emptyToNull(value);
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/^act_/i, "").replace(/\D/g, "");
+  return digits || null;
+}
+
 function normalizeBrandInput(input: BrandInput) {
   const name = input.name.trim();
   const domain = input.domain.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -63,7 +71,7 @@ function normalizeBrandInput(input: BrandInput) {
     ga4_property_id: emptyToNull(input.ga4_property_id),
     gsc_site_url: emptyToNull(input.gsc_site_url),
     google_ads_customer_id: emptyToNull(input.google_ads_customer_id),
-    meta_ad_account_id: emptyToNull(input.meta_ad_account_id),
+    meta_ad_account_id: normalizeMetaAdAccountId(input.meta_ad_account_id),
   };
 }
 

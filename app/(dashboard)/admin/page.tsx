@@ -3,7 +3,7 @@ import { listBrandsWithCredentials } from "@/lib/brands";
 import { listManagedUsers } from "@/lib/users";
 import { BrandFormFields } from "@/components/brand-form-fields";
 import { Alert, Button, Field, Input, Page, PageHeader, Panel, Section, Select, Table, TextMuted } from "@/components/ui";
-import { createBrandAction, updateBrandAction } from "./brands/actions";
+import { createBrandAction, syncBrandNowAction, updateBrandAction } from "./brands/actions";
 import { addPersonAction, assignPersonAction } from "./people-actions";
 
 export default async function AdminPage({
@@ -17,7 +17,18 @@ export default async function AdminPage({
 
   return (
     <Page>
-      <PageHeader title="Admin" description="Manage companies, property IDs, and who can see each lab." />
+      <PageHeader
+        title="Admin"
+        description="Manage companies, property IDs, and who can see each lab."
+        actions={
+          <div className="ds-row">
+            <Button href="/api/admin/google-oauth/start">Connect Google</Button>
+            <Button href="/api/admin/sync-google" variant="secondary">
+              Sync all companies
+            </Button>
+          </div>
+        }
+      />
 
       {saved ? <Alert tone="ok">{saved}</Alert> : null}
       {error ? <Alert tone="err">{error}</Alert> : null}
@@ -89,10 +100,8 @@ export default async function AdminPage({
 
       <Section title="Companies & property IDs">
         <TextMuted>
-          Add a company or paste GA4 / GSC / Ads IDs.{" "}
-          <a href="/api/admin/sync-google">Run Google sync</a>
-          {" · "}
-          <a href="/api/admin/google-oauth/start">Connect Google</a>
+          Add a company or paste GA4 / GSC / Ads IDs. Sync now pulls the last 14 days of GA4,
+          Search Console, and Google Ads for that company.
         </TextMuted>
 
         <Panel>
@@ -111,9 +120,13 @@ export default async function AdminPage({
             <form action={updateBrandAction} className="ds-stack">
               <input type="hidden" name="brand_id" value={brand.id} />
               <BrandFormFields brand={brand} />
-              <p>
-                <Button>Save {brand.name}</Button>
-              </p>
+            <div className="ds-row">
+              <Button>Save {brand.name}</Button>
+            </div>
+            </form>
+            <form action={syncBrandNowAction} className="ds-row">
+              <input type="hidden" name="brand_id" value={brand.id} />
+              <Button variant="secondary">Sync now</Button>
             </form>
           </Panel>
         ))}

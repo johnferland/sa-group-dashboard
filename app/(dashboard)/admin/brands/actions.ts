@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireSuperAdmin } from "@/lib/auth";
 import { createBrand, updateBrand, type Brand } from "@/lib/brands";
+import { formatBrandSyncSummary, syncGoogleMetricsForBrand } from "@/lib/integrations/sync-google";
 
 function formValue(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "");
@@ -48,4 +49,28 @@ export async function updateBrandAction(formData: FormData) {
     fail(error instanceof Error ? error.message : "Could not save brand.");
   }
     redirect(`/admin?saved=${encodeURIComponent(`Saved ${brand.name}`)}`);
+}
+
+export async function syncBrandNowAction(formData: FormData) {
+  await requireSuperAdmin();
+  const brandId = formValue(formData, "brand_id");
+  if (!brandId) fail("Missing brand id.");
+
+  let message = "";
+  let failed = false;
+  try {
+    const result = await syncGoogleMetricsForBrand(brandId, 14);
+    failed =
+      ("ok" in result.brand.ga4 && result.brand.ga4.ok === false) ||
+      ("ok" in result.brand.gsc && result.brand.gsc.ok === false) ||
+      ("ok" in result.brand.ads && result.brand.ads.ok === false);
+    message = formatBrandSyncSummary(result.brand);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Sync failed.");
+  }
+
+  if (failed) {
+    redirect(`/admin?error=${encodeURIComponent(message)}`);
+  }
+  redirect(`/admin?saved=${encodeURIComponent(message)}`);
 }

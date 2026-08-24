@@ -42,7 +42,7 @@ export function BrandFormFields({
         <Input name="google_ads_customer_id" defaultValue={brand?.google_ads_customer_id ?? ""} placeholder="123-456-7890" />
       </Field>
       <Field label="Meta ad account ID">
-        <Input name="meta_ad_account_id" defaultValue={brand?.meta_ad_account_id ?? ""} placeholder="act_123456789" />
+        <Input name="meta_ad_account_id" defaultValue={brand?.meta_ad_account_id ?? ""} placeholder="123456789" />
       </Field>
     </div>
   );

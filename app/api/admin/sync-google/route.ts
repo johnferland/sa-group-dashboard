@@ -20,7 +20,10 @@ export async function GET(request: Request) {
   try {
     const result = await syncGoogleMetrics(days);
     const failed = result.brands.some(
-      (brand) => ("ok" in brand.ga4 && brand.ga4.ok === false) || ("ok" in brand.gsc && brand.gsc.ok === false),
+      (brand) =>
+        ("ok" in brand.ga4 && brand.ga4.ok === false) ||
+        ("ok" in brand.gsc && brand.gsc.ok === false) ||
+        ("ok" in brand.ads && brand.ads.ok === false),
     );
     return NextResponse.json({ ok: !failed, ...result });
   } catch (error) {
