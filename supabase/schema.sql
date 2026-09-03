@@ -38,6 +38,7 @@ create table brand_credentials (
   gsc_site_url text,
   google_ads_customer_id text,
   meta_ad_account_id text,
+  web_leads_webhook_secret text,
   updated_at timestamptz not null default now()
 );
 
@@ -87,9 +88,22 @@ create table manual_leads (
   brand_id uuid not null references brands(id),
   week_start_date date not null,
   lead_count integer not null default 0,
+  phone_leads integer not null default 0,
+  email_leads integer not null default 0,
+  referral_leads integer not null default 0,
+  trade_show_leads integer not null default 0,
   entered_by uuid not null references users(id),
   created_at timestamptz not null default now(),
   unique (brand_id, week_start_date)
+);
+
+create table web_leads (
+  id uuid primary key default gen_random_uuid(),
+  brand_id uuid not null references brands(id),
+  received_at timestamptz not null default now(),
+  count integer not null default 1 check (count > 0),
+  source text,
+  created_at timestamptz not null default now()
 );
 
 create table manual_deals (
@@ -145,7 +159,7 @@ declare
 begin
   for t in select unnest(array[
     'brands', 'users', 'shared_credentials', 'brand_credentials', 'ga4_metrics',
-    'gsc_metrics', 'ads_metrics', 'manual_leads', 'manual_deals', 'social_sqls',
+    'gsc_metrics', 'ads_metrics', 'manual_leads', 'web_leads', 'manual_deals', 'social_sqls',
     'leaderboard_snapshots', 'sync_logs'
   ])
   loop

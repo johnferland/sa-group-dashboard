@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { generateWebLeadsWebhookSecret } from "@/lib/web-leads";
 
 export type Brand = {
   id: string;
@@ -15,6 +16,7 @@ export type BrandCredentials = {
   gsc_site_url: string | null;
   google_ads_customer_id: string | null;
   meta_ad_account_id: string | null;
+  web_leads_webhook_secret?: string | null;
 };
 
 export type BrandWithCredentials = Brand & BrandCredentials;
@@ -109,7 +111,7 @@ export async function listBrandsWithCredentials(): Promise<BrandWithCredentials[
 
   const { data: credentials, error: credError } = await supabase
     .from("brand_credentials")
-    .select("brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id");
+    .select("brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id, web_leads_webhook_secret");
 
   if (credError) throw new Error(credError.message);
 
@@ -130,18 +132,27 @@ export async function listBrandsWithCredentials(): Promise<BrandWithCredentials[
       gsc_site_url: (creds?.gsc_site_url as string | null) ?? null,
       google_ads_customer_id: (creds?.google_ads_customer_id as string | null) ?? null,
       meta_ad_account_id: (creds?.meta_ad_account_id as string | null) ?? null,
+      web_leads_webhook_secret: (creds?.web_leads_webhook_secret as string | null) ?? null,
     };
   });
 }
 
 async function upsertCredentials(brandId: string, input: ReturnType<typeof normalizeBrandInput>) {
   const supabase = getSupabaseAdmin();
+  const { data: existing } = await supabase
+    .from("brand_credentials")
+    .select("web_leads_webhook_secret")
+    .eq("brand_id", brandId)
+    .maybeSingle();
+
   const { error } = await supabase.from("brand_credentials").upsert({
     brand_id: brandId,
     ga4_property_id: input.ga4_property_id,
     gsc_site_url: input.gsc_site_url,
     google_ads_customer_id: input.google_ads_customer_id,
     meta_ad_account_id: input.meta_ad_account_id,
+    web_leads_webhook_secret:
+      (existing?.web_leads_webhook_secret as string | null) ?? generateWebLeadsWebhookSecret(),
     updated_at: new Date().toISOString(),
   });
   if (error) throw new Error(error.message);

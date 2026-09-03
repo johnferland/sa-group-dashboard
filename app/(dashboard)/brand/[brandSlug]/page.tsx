@@ -63,6 +63,8 @@ export default async function BrandDashboard({
     listRecentLeads(brand.id as string),
   ]);
   const canEnterLeads = canLogWeeklyLeads(user, brand.id as string);
+  const weekStart = currentWeekStart();
+  const thisWeek = recentLeads.find((row) => row.week_start_date === weekStart);
 
   return (
     <Page brand={brandSlug}>
@@ -75,10 +77,11 @@ export default async function BrandDashboard({
       {saved ? <Alert tone="ok">{saved}</Alert> : null}
       {error ? <Alert tone="err">{error}</Alert> : null}
 
-      <Section title="Website">
+      <Section title="Leads">
         <div className="ds-grid">
-          <MetricCard label="Sessions" metric={metrics.sessions} />
-          <MetricCard label="Conversions" metric={metrics.conversions} />
+          <MetricCard label="Total leads" metric={metrics.totalLeads} />
+          <MetricCard label="Web leads" metric={metrics.webLeads} />
+          <MetricCard label="Offline leads" metric={metrics.offlineLeads} />
         </div>
       </Section>
 
@@ -126,25 +129,41 @@ export default async function BrandDashboard({
         </div>
       </Section>
 
-      <Section title="Leads">
-        <div className="ds-grid">
-          <MetricCard label="Weekly leads logged" metric={metrics.weeklyLeads} />
-        </div>
-
+      <Section title="Offline leads">
         {canEnterLeads ? (
-          <Panel className="ds-stack" style={{ marginTop: "var(--space-4)" }}>
-            <h3 className="ds-heading-sm">Log this week&apos;s lead count</h3>
-            <form action={saveWeeklyLeadsAction} className="ds-row">
+          <Panel className="ds-stack">
+            <h3 className="ds-heading-sm">Log this week&apos;s offline leads</h3>
+            <form action={saveWeeklyLeadsAction} className="ds-stack">
               <input type="hidden" name="brand_id" value={brand.id as string} />
               <input type="hidden" name="brand_slug" value={brandSlug} />
               <input type="hidden" name="period" value={period} />
-              <Field label="Week starting">
-                <Input type="date" name="week_start_date" defaultValue={currentWeekStart()} required />
-              </Field>
-              <Field label="Total leads">
-                <Input type="number" name="lead_count" min={0} step={1} required defaultValue={0} />
-              </Field>
-              <Button>Save leads</Button>
+              <div className="ds-form-grid">
+                <Field label="Week starting">
+                  <Input type="date" name="week_start_date" defaultValue={weekStart} required />
+                </Field>
+                <Field label="Phone call leads">
+                  <Input type="number" name="phone_leads" min={0} step={1} required defaultValue={thisWeek?.phone_leads ?? 0} />
+                </Field>
+                <Field label="Emails">
+                  <Input type="number" name="email_leads" min={0} step={1} required defaultValue={thisWeek?.email_leads ?? 0} />
+                </Field>
+                <Field label="Referrals">
+                  <Input type="number" name="referral_leads" min={0} step={1} required defaultValue={thisWeek?.referral_leads ?? 0} />
+                </Field>
+                <Field label="Trade shows">
+                  <Input
+                    type="number"
+                    name="trade_show_leads"
+                    min={0}
+                    step={1}
+                    required
+                    defaultValue={thisWeek?.trade_show_leads ?? 0}
+                  />
+                </Field>
+              </div>
+              <p>
+                <Button>Save leads</Button>
+              </p>
             </form>
           </Panel>
         ) : (
@@ -152,13 +171,21 @@ export default async function BrandDashboard({
         )}
 
         {recentLeads.length ? (
-          <Table headers={["Week starting", "Leads"]}>
-            {recentLeads.map((row) => (
-              <tr key={row.id as string}>
-                <td>{row.week_start_date as string}</td>
-                <td>{row.lead_count as number}</td>
-              </tr>
-            ))}
+          <Table headers={["Week starting", "Phone", "Emails", "Referrals", "Trade shows", "Offline total"]}>
+            {recentLeads.map((row) => {
+              const total =
+                row.phone_leads + row.email_leads + row.referral_leads + row.trade_show_leads || row.lead_count;
+              return (
+                <tr key={row.id}>
+                  <td>{row.week_start_date}</td>
+                  <td>{row.phone_leads}</td>
+                  <td>{row.email_leads}</td>
+                  <td>{row.referral_leads}</td>
+                  <td>{row.trade_show_leads}</td>
+                  <td>{total}</td>
+                </tr>
+              );
+            })}
           </Table>
         ) : null}
       </Section>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireSuperAdmin } from "@/lib/auth";
 import { createBrand, updateBrand, type Brand } from "@/lib/brands";
 import { formatBrandSyncSummary, syncGoogleMetricsForBrand } from "@/lib/integrations/sync-google";
+import { rotateWebLeadsWebhookSecret } from "@/lib/web-leads";
 
 function formValue(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "");
@@ -74,4 +75,16 @@ export async function syncBrandNowAction(formData: FormData) {
     redirect(`/admin?error=${encodeURIComponent(message)}`);
   }
   redirect(`/admin?saved=${encodeURIComponent(message)}`);
+}
+
+export async function rotateWebLeadsWebhookAction(formData: FormData) {
+  await requireSuperAdmin();
+  const brandId = formValue(formData, "brand_id");
+  if (!brandId) fail("Missing brand id.");
+  try {
+    await rotateWebLeadsWebhookSecret(brandId);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Could not update webhook secret.");
+  }
+  redirect(`/admin?saved=${encodeURIComponent("Web leads webhook secret updated.")}`);
 }

@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getPreviousPeriod, percentChange, sum, weightedAverage, type DateRange } from "@/lib/aggregation";
 import { AI_REFERRAL_PATTERNS, type AiReferralKey } from "@/lib/integrations/ga4";
+import { sumWebLeads } from "@/lib/web-leads";
 
 export type MetricValue = {
   current: number;
@@ -33,6 +34,9 @@ export type BrandPeriodMetrics = {
   metaCostPerLead: MetricValue;
   adLeads: MetricValue;
   weeklyLeads: MetricValue;
+  webLeads: MetricValue;
+  offlineLeads: MetricValue;
+  totalLeads: MetricValue;
   aiTotal: MetricValue;
   aiReferrals: Record<AiReferralKey, MetricValue>;
 };
@@ -62,6 +66,31 @@ function adsSlice(
   };
 }
 
+export type OfflineLeadRow = {
+  id: string;
+  week_start_date: string;
+  lead_count: number;
+  phone_leads: number;
+  email_leads: number;
+  referral_leads: number;
+  trade_show_leads: number;
+};
+
+function offlineTotal(row: {
+  lead_count?: number | null;
+  phone_leads?: number | null;
+  email_leads?: number | null;
+  referral_leads?: number | null;
+  trade_show_leads?: number | null;
+}): number {
+  const phone = Number(row.phone_leads ?? 0);
+  const email = Number(row.email_leads ?? 0);
+  const referral = Number(row.referral_leads ?? 0);
+  const tradeShow = Number(row.trade_show_leads ?? 0);
+  const split = phone + email + referral + tradeShow;
+  return split > 0 ? split : Number(row.lead_count ?? 0);
+}
+
 function emptyAiMetrics(): Record<AiReferralKey, number> {
   return Object.fromEntries(AI_REFERRAL_PATTERNS.map((pattern) => [pattern.key, 0])) as Record<AiReferralKey, number>;
 }
@@ -88,33 +117,41 @@ export async function getBrandPeriodMetrics(
   const from = previous.start;
   const to = range.end;
 
-  const [{ data: ga4, error: ga4Error }, { data: gsc, error: gscError }, { data: ads, error: adsError }, { data: leads }] =
-    await Promise.all([
-      supabase
-        .from("ga4_metrics")
-        .select("date, sessions, conversions, organic_sessions, new_users, ai_referral_breakdown")
-        .eq("brand_id", brandId)
-        .gte("date", from)
-        .lte("date", to),
-      supabase
-        .from("gsc_metrics")
-        .select("date, clicks, impressions, ctr, avg_position, keywords_top3, total_keywords")
-        .eq("brand_id", brandId)
-        .gte("date", from)
-        .lte("date", to),
-      supabase
-        .from("ads_metrics")
-        .select("date, source, spend, leads, clicks, impressions")
-        .eq("brand_id", brandId)
-        .gte("date", from)
-        .lte("date", to),
-      supabase
-        .from("manual_leads")
-        .select("week_start_date, lead_count")
-        .eq("brand_id", brandId)
-        .gte("week_start_date", from)
-        .lte("week_start_date", to),
-    ]);
+  const [
+    { data: ga4, error: ga4Error },
+    { data: gsc, error: gscError },
+    { data: ads, error: adsError },
+    { data: leads, error: leadsError },
+    webCurrent,
+    webPrevious,
+  ] = await Promise.all([
+    supabase
+      .from("ga4_metrics")
+      .select("date, sessions, conversions, organic_sessions, new_users, ai_referral_breakdown")
+      .eq("brand_id", brandId)
+      .gte("date", from)
+      .lte("date", to),
+    supabase
+      .from("gsc_metrics")
+      .select("date, clicks, impressions, ctr, avg_position, keywords_top3, total_keywords")
+      .eq("brand_id", brandId)
+      .gte("date", from)
+      .lte("date", to),
+    supabase
+      .from("ads_metrics")
+      .select("date, source, spend, leads, clicks, impressions")
+      .eq("brand_id", brandId)
+      .gte("date", from)
+      .lte("date", to),
+    supabase
+      .from("manual_leads")
+      .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
+      .eq("brand_id", brandId)
+      .gte("week_start_date", from)
+      .lte("week_start_date", to),
+    sumWebLeads(brandId, range.start, range.end),
+    sumWebLeads(brandId, previous.start, previous.end),
+  ]);
 
   const missingColumn = (message: string | undefined) =>
     Boolean(message && /does not exist|schema cache/i.test(message));
@@ -165,6 +202,22 @@ export async function getBrandPeriodMetrics(
           })()
         : ads;
 
+  const leadsData =
+    leadsError && missingColumn(leadsError.message)
+      ? (
+          await supabase
+            .from("manual_leads")
+            .select("week_start_date, lead_count")
+            .eq("brand_id", brandId)
+            .gte("week_start_date", from)
+            .lte("week_start_date", to)
+        ).data
+      : leadsError
+        ? (() => {
+            throw new Error(leadsError.message);
+          })()
+        : leads;
+
   const ga4Rows = (ga4Data ?? []) as Array<{
     date: string;
     sessions: number;
@@ -190,9 +243,13 @@ export async function getBrandPeriodMetrics(
     clicks: number | null;
     impressions: number | null;
   }>;
-  const leadRows = (leads ?? []).map((row) => ({
+  const leadRows = (leadsData ?? []).map((row) => ({
     date: row.week_start_date as string,
     lead_count: Number(row.lead_count ?? 0),
+    phone_leads: Number((row as { phone_leads?: number }).phone_leads ?? 0),
+    email_leads: Number((row as { email_leads?: number }).email_leads ?? 0),
+    referral_leads: Number((row as { referral_leads?: number }).referral_leads ?? 0),
+    trade_show_leads: Number((row as { trade_show_leads?: number }).trade_show_leads ?? 0),
   }));
 
   const currentGa4 = inRange(ga4Rows, range);
@@ -233,6 +290,9 @@ export async function getBrandPeriodMetrics(
   const currentAiTotal = sum(Object.values(currentAi));
   const previousAiTotal = sum(Object.values(previousAi));
 
+  const currentOffline = sum(currentLeads.map((row) => offlineTotal(row)));
+  const previousOffline = sum(previousLeads.map((row) => offlineTotal(row)));
+
   const aiReferrals = Object.fromEntries(
     AI_REFERRAL_PATTERNS.map((pattern) => [pattern.key, metric(currentAi[pattern.key], previousAi[pattern.key])]),
   ) as Record<AiReferralKey, MetricValue>;
@@ -270,36 +330,68 @@ export async function getBrandPeriodMetrics(
     metaCtr: metric(ratio(currentMeta.clicks, currentMeta.impressions) * 100, ratio(previousMeta.clicks, previousMeta.impressions) * 100),
     metaCostPerLead: metric(ratio(currentMeta.spend, currentMeta.leads), ratio(previousMeta.spend, previousMeta.leads)),
     adLeads: metric(currentGoogle.leads + currentMeta.leads, previousGoogle.leads + previousMeta.leads),
-    weeklyLeads: metric(sum(currentLeads.map((row) => row.lead_count)), sum(previousLeads.map((row) => row.lead_count))),
+    weeklyLeads: metric(currentOffline + webCurrent, previousOffline + webPrevious),
+    webLeads: metric(webCurrent, webPrevious),
+    offlineLeads: metric(currentOffline, previousOffline),
+    totalLeads: metric(currentOffline + webCurrent, previousOffline + webPrevious),
     aiTotal: metric(currentAiTotal, previousAiTotal),
     aiReferrals,
   };
 }
 
-export async function listRecentLeads(brandId: string, limit = 8) {
+export async function listRecentLeads(brandId: string, limit = 8): Promise<OfflineLeadRow[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const full = await supabase
     .from("manual_leads")
-    .select("id, week_start_date, lead_count")
+    .select("id, week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
     .eq("brand_id", brandId)
     .order("week_start_date", { ascending: false })
     .limit(limit);
+  const { data, error } =
+    full.error && /does not exist|schema cache/i.test(full.error.message)
+      ? await supabase
+          .from("manual_leads")
+          .select("id, week_start_date, lead_count")
+          .eq("brand_id", brandId)
+          .order("week_start_date", { ascending: false })
+          .limit(limit)
+      : full;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    week_start_date: row.week_start_date as string,
+    lead_count: Number(row.lead_count ?? 0),
+    phone_leads: Number((row as { phone_leads?: number }).phone_leads ?? 0),
+    email_leads: Number((row as { email_leads?: number }).email_leads ?? 0),
+    referral_leads: Number((row as { referral_leads?: number }).referral_leads ?? 0),
+    trade_show_leads: Number((row as { trade_show_leads?: number }).trade_show_leads ?? 0),
+  }));
 }
 
 export async function upsertWeeklyLeads(input: {
   brandId: string;
   weekStartDate: string;
-  leadCount: number;
+  phoneLeads: number;
+  emailLeads: number;
+  referralLeads: number;
+  tradeShowLeads: number;
   enteredBy: string;
 }) {
+  const phoneLeads = Math.max(0, Math.round(input.phoneLeads));
+  const emailLeads = Math.max(0, Math.round(input.emailLeads));
+  const referralLeads = Math.max(0, Math.round(input.referralLeads));
+  const tradeShowLeads = Math.max(0, Math.round(input.tradeShowLeads));
+  const leadCount = phoneLeads + emailLeads + referralLeads + tradeShowLeads;
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("manual_leads").upsert(
     {
       brand_id: input.brandId,
       week_start_date: input.weekStartDate,
-      lead_count: input.leadCount,
+      lead_count: leadCount,
+      phone_leads: phoneLeads,
+      email_leads: emailLeads,
+      referral_leads: referralLeads,
+      trade_show_leads: tradeShowLeads,
       entered_by: input.enteredBy,
     },
     { onConflict: "brand_id,week_start_date" },

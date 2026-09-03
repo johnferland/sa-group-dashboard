@@ -53,8 +53,7 @@ export default async function DashboardHome({
             <div className="ds-grid" style={{ marginTop: "var(--space-3)" }}>
               <MetricCard label="Sessions" metric={metrics.sessions} />
               <MetricCard label="SEO clicks" metric={metrics.clicks} />
-              <MetricCard label="Conversions" metric={metrics.conversions} />
-              <MetricCard label="Weekly leads" metric={metrics.weeklyLeads} />
+              <MetricCard label="Total leads" metric={metrics.totalLeads} />
             </div>
           </Card>
         ))}

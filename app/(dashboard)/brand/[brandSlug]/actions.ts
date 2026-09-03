@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { getCurrentAppUser, canLogWeeklyLeads } from "@/lib/auth";
 import { upsertWeeklyLeads } from "@/lib/metrics";
 
+function formNumber(formData: FormData, key: string): number {
+  return Number(formData.get(key) ?? 0);
+}
+
 export async function saveWeeklyLeadsAction(formData: FormData) {
   const user = await getCurrentAppUser();
   if (!user) redirect("/sign-in");
@@ -11,31 +15,37 @@ export async function saveWeeklyLeadsAction(formData: FormData) {
   const brandId = String(formData.get("brand_id") ?? "");
   const brandSlug = String(formData.get("brand_slug") ?? "");
   const weekStartDate = String(formData.get("week_start_date") ?? "");
-  const leadCount = Number(formData.get("lead_count") ?? 0);
+  const phoneLeads = formNumber(formData, "phone_leads");
+  const emailLeads = formNumber(formData, "email_leads");
+  const referralLeads = formNumber(formData, "referral_leads");
+  const tradeShowLeads = formNumber(formData, "trade_show_leads");
   const period = String(formData.get("period") ?? "week");
+  const back = `/brand/${brandSlug}?period=${encodeURIComponent(period)}`;
 
   if (!brandId || !weekStartDate) {
-    redirect(`/brand/${brandSlug}?error=${encodeURIComponent("Week start date is required.")}`);
+    redirect(`${back}&error=${encodeURIComponent("Week start date is required.")}`);
   }
   if (!canLogWeeklyLeads(user, brandId)) {
-    redirect(`/brand/${brandSlug}?error=${encodeURIComponent("You cannot enter leads for this brand.")}`);
+    redirect(`${back}&error=${encodeURIComponent("You cannot enter leads for this brand.")}`);
   }
-  if (!Number.isFinite(leadCount) || leadCount < 0) {
-    redirect(`/brand/${brandSlug}?error=${encodeURIComponent("Lead count must be 0 or more.")}`);
+  const values = [phoneLeads, emailLeads, referralLeads, tradeShowLeads];
+  if (values.some((value) => !Number.isFinite(value) || value < 0)) {
+    redirect(`${back}&error=${encodeURIComponent("Each lead count must be 0 or more.")}`);
   }
 
   try {
     await upsertWeeklyLeads({
       brandId,
       weekStartDate,
-      leadCount: Math.round(leadCount),
+      phoneLeads,
+      emailLeads,
+      referralLeads,
+      tradeShowLeads,
       enteredBy: user.id,
     });
   } catch (error) {
-    redirect(
-      `/brand/${brandSlug}?error=${encodeURIComponent(error instanceof Error ? error.message : "Could not save leads.")}`,
-    );
+    redirect(`${back}&error=${encodeURIComponent(error instanceof Error ? error.message : "Could not save leads.")}`);
   }
 
-  redirect(`/brand/${brandSlug}?period=${encodeURIComponent(period)}&saved=${encodeURIComponent("Weekly leads saved")}`);
+  redirect(`${back}&saved=${encodeURIComponent("Offline leads saved")}`);
 }

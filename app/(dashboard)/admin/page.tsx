@@ -3,7 +3,7 @@ import { listBrandsWithCredentials } from "@/lib/brands";
 import { listManagedUsers } from "@/lib/users";
 import { BrandFormFields } from "@/components/brand-form-fields";
 import { Alert, Button, Field, Input, Page, PageHeader, Panel, Section, Select, Table, TextMuted } from "@/components/ui";
-import { createBrandAction, syncBrandNowAction, updateBrandAction } from "./brands/actions";
+import { createBrandAction, syncBrandNowAction, updateBrandAction, rotateWebLeadsWebhookAction } from "./brands/actions";
 import { addPersonAction, assignPersonAction } from "./people-actions";
 
 export default async function AdminPage({
@@ -128,6 +128,29 @@ export default async function AdminPage({
               <input type="hidden" name="brand_id" value={brand.id} />
               <Button variant="secondary">Sync now</Button>
             </form>
+            <div className="ds-stack" style={{ marginTop: "var(--space-4)" }}>
+              <h3 className="ds-heading-sm">Web leads webhook</h3>
+              <TextMuted>
+                Point the website form to this URL. Each POST counts as web leads. Header{" "}
+                <code>X-Webhook-Secret</code> or JSON <code>{`{ "count": 1, "source": "contact-form" }`}</code>.
+              </TextMuted>
+              <Field label="Webhook URL">
+                <Input
+                  readOnly
+                  defaultValue={`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/webhooks/web-leads/${brand.slug}`}
+                />
+              </Field>
+              <Field label="Secret">
+                <Input
+                  readOnly
+                  defaultValue={brand.web_leads_webhook_secret ?? "Save the company once to generate a secret"}
+                />
+              </Field>
+              <form action={rotateWebLeadsWebhookAction}>
+                <input type="hidden" name="brand_id" value={brand.id} />
+                <Button variant="secondary">Generate / rotate secret</Button>
+              </form>
+            </div>
           </Panel>
         ))}
       </Section>
