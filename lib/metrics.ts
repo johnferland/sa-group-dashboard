@@ -49,6 +49,12 @@ function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : numerator / denominator;
 }
 
+// Ads/search periods end yesterday (data lags). Web forms arrive today and must still count.
+function includeToday(end: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return end < today ? today : end;
+}
+
 function inRange<T extends { date: string }>(rows: T[], range: DateRange): T[] {
   return rows.filter((row) => row.date >= range.start && row.date <= range.end);
 }
@@ -149,7 +155,7 @@ export async function getBrandPeriodMetrics(
       .eq("brand_id", brandId)
       .gte("week_start_date", from)
       .lte("week_start_date", to),
-    sumWebLeads(brandId, range.start, range.end),
+    sumWebLeads(brandId, range.start, includeToday(range.end)),
     sumWebLeads(brandId, previous.start, previous.end),
   ]);
 

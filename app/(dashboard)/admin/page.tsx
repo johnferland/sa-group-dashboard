@@ -131,8 +131,8 @@ export default async function AdminPage({
             <div className="ds-stack" style={{ marginTop: "var(--space-4)" }}>
               <h3 className="ds-heading-sm">Web leads webhook</h3>
               <TextMuted>
-                Point the website form to this URL. Each POST counts as web leads. Header{" "}
-                <code>X-Webhook-Secret</code> or JSON <code>{`{ "count": 1, "source": "contact-form" }`}</code>.
+                Point the website form (or Zapier) here. POST JSON or form fields: first_name, last_name,
+                email, date, count. Header <code>X-Webhook-Secret</code>.
               </TextMuted>
               <Field label="Webhook URL">
                 <Input

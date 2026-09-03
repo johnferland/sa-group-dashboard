@@ -16,12 +16,20 @@ export async function recordWebLeads(input: {
   brandId: string;
   count: number;
   source?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  submittedAt?: string | null;
 }) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("web_leads").insert({
     brand_id: input.brandId,
     count: input.count,
     source: input.source ?? null,
+    first_name: input.firstName ?? null,
+    last_name: input.lastName ?? null,
+    email: input.email ?? null,
+    submitted_at: input.submittedAt ?? null,
   });
   if (error) throw new Error(error.message);
 }
@@ -39,6 +47,50 @@ export async function sumWebLeads(brandId: string, start: string, end: string): 
     throw new Error(error.message);
   }
   return (data ?? []).reduce((total, row) => total + Number(row.count ?? 0), 0);
+}
+
+export type WebLeadRow = {
+  id: string;
+  received_at: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  submitted_at: string | null;
+  count: number;
+};
+
+export async function listRecentWebLeads(brandId: string, limit = 12): Promise<WebLeadRow[]> {
+  const supabase = getSupabaseAdmin();
+  const full = await supabase
+    .from("web_leads")
+    .select("id, received_at, first_name, last_name, email, submitted_at, count")
+    .eq("brand_id", brandId)
+    .order("received_at", { ascending: false })
+    .limit(limit);
+  if (!full.error) return (full.data ?? []) as WebLeadRow[];
+  if (!/does not exist|schema cache/i.test(full.error.message)) {
+    throw new Error(full.error.message);
+  }
+
+  const basic = await supabase
+    .from("web_leads")
+    .select("id, received_at, count")
+    .eq("brand_id", brandId)
+    .order("received_at", { ascending: false })
+    .limit(limit);
+  if (basic.error) {
+    if (/does not exist|schema cache/i.test(basic.error.message)) return [];
+    throw new Error(basic.error.message);
+  }
+  return (basic.data ?? []).map((row) => ({
+    id: row.id as string,
+    received_at: row.received_at as string,
+    count: Number(row.count ?? 1),
+    first_name: null,
+    last_name: null,
+    email: null,
+    submitted_at: null,
+  }));
 }
 
 export async function ensureWebLeadsWebhookSecret(brandId: string): Promise<string> {

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentAppUser, canAccessBrand, canLogWeeklyLeads } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getBrandPeriodMetrics, listRecentLeads } from "@/lib/metrics";
+import { listRecentWebLeads } from "@/lib/web-leads";
 import { currentWeekStart, getPeriodRange, isPeriodKey, type PeriodKey } from "@/lib/period";
 import { PeriodToggle } from "@/components/period-toggle";
 import {
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui";
 import { saveWeeklyLeadsAction } from "./actions";
 import { AI_REFERRAL_PATTERNS } from "@/lib/integrations/ga4";
+
+export const dynamic = "force-dynamic";
 
 export default async function BrandDashboard({
   params,
@@ -58,9 +61,10 @@ export default async function BrandDashboard({
     );
   }
 
-  const [metrics, recentLeads] = await Promise.all([
+  const [metrics, recentLeads, recentWebLeads] = await Promise.all([
     getBrandPeriodMetrics(brand.id as string, range),
     listRecentLeads(brand.id as string),
+    listRecentWebLeads(brand.id as string),
   ]);
   const canEnterLeads = canLogWeeklyLeads(user, brand.id as string);
   const weekStart = currentWeekStart();
@@ -83,6 +87,18 @@ export default async function BrandDashboard({
           <MetricCard label="Web leads" metric={metrics.webLeads} />
           <MetricCard label="Offline leads" metric={metrics.offlineLeads} />
         </div>
+        {recentWebLeads.length ? (
+          <Table headers={["Date", "First name", "Last name", "Email"]}>
+            {recentWebLeads.map((row) => (
+              <tr key={row.id}>
+                <td>{(row.submitted_at ?? row.received_at).slice(0, 10)}</td>
+                <td>{row.first_name ?? "—"}</td>
+                <td>{row.last_name ?? "—"}</td>
+                <td>{row.email ?? "—"}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : null}
       </Section>
 
       <Section title="Search">

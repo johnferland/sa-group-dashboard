@@ -103,6 +103,10 @@ create table web_leads (
   received_at timestamptz not null default now(),
   count integer not null default 1 check (count > 0),
   source text,
+  first_name text,
+  last_name text,
+  email text,
+  submitted_at timestamptz,
   created_at timestamptz not null default now()
 );
 
