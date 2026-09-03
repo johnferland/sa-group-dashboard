@@ -63,7 +63,8 @@ export async function syncBrandNowAction(formData: FormData) {
     failed =
       ("ok" in result.brand.ga4 && result.brand.ga4.ok === false) ||
       ("ok" in result.brand.gsc && result.brand.gsc.ok === false) ||
-      ("ok" in result.brand.ads && result.brand.ads.ok === false);
+      ("ok" in result.brand.ads && result.brand.ads.ok === false) ||
+      ("ok" in result.brand.meta && result.brand.meta.ok === false);
     message = formatBrandSyncSummary(result.brand);
   } catch (error) {
     fail(error instanceof Error ? error.message : "Sync failed.");

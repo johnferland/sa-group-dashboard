@@ -23,7 +23,8 @@ export async function GET(request: Request) {
       (brand) =>
         ("ok" in brand.ga4 && brand.ga4.ok === false) ||
         ("ok" in brand.gsc && brand.gsc.ok === false) ||
-        ("ok" in brand.ads && brand.ads.ok === false),
+        ("ok" in brand.ads && brand.ads.ok === false) ||
+        ("ok" in brand.meta && brand.meta.ok === false),
     );
     return NextResponse.json({ ok: !failed, ...result });
   } catch (error) {

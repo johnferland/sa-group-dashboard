@@ -101,7 +101,7 @@ export default async function AdminPage({
       <Section title="Companies & property IDs">
         <TextMuted>
           Add a company or paste GA4 / GSC / Ads IDs. Sync now pulls the last 14 days of GA4,
-          Search Console, and Google Ads for that company.
+          Search Console, Google Ads, and Meta Ads for that company.
         </TextMuted>
 
         <Panel>

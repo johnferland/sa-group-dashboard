@@ -3,6 +3,7 @@ import { isoDateDaysAgo } from "@/lib/integrations/google-auth";
 import { syncGa4ForBrand } from "@/lib/integrations/ga4";
 import { syncGscForBrand } from "@/lib/integrations/gsc";
 import { syncGoogleAdsForBrand } from "@/lib/integrations/google-ads";
+import { syncMetaAdsForBrand } from "@/lib/integrations/meta-ads";
 
 export type SourceResult<T> = T | { ok: false; error: string } | { skipped: true; reason: string };
 
@@ -12,12 +13,14 @@ export type BrandSyncResult = {
   ga4: SourceResult<{ ok: true; days: number; sessions: number; conversions: number }>;
   gsc: SourceResult<{ ok: true; days: number; clicks: number; impressions: number }>;
   ads: SourceResult<{ ok: true; days: number; spend: number; clicks: number; leads: number }>;
+  meta: SourceResult<{ ok: true; days: number; spend: number; clicks: number; leads: number }>;
 };
 
 type BrandCreds = {
   ga4_property_id: string | null;
   gsc_site_url: string | null;
   google_ads_customer_id: string | null;
+  meta_ad_account_id: string | null;
 };
 
 async function logFailure(brandId: string, source: string, error: unknown) {
@@ -32,15 +35,18 @@ async function logFailure(brandId: string, source: string, error: unknown) {
 
 function summarize(result: BrandSyncResult): string {
   const parts = [result.name];
-  const line = (label: string, value: BrandSyncResult["ga4"] | BrandSyncResult["gsc"] | BrandSyncResult["ads"]) => {
+  const line = (
+    label: string,
+    value: BrandSyncResult["ga4"] | BrandSyncResult["gsc"] | BrandSyncResult["ads"] | BrandSyncResult["meta"],
+  ) => {
     if ("skipped" in value) return `${label} skipped`;
     if (value.ok === false) return `${label} failed: ${value.error}`;
     if ("sessions" in value) return `GA4 ${value.days}d / ${value.sessions} sess`;
     if ("impressions" in value) return `GSC ${value.days}d / ${value.clicks} clicks`;
-    if ("spend" in value) return `Ads ${value.days}d / $${value.spend.toFixed(0)} / ${value.leads} leads`;
+    if ("spend" in value) return `${label} ${value.days}d / $${value.spend.toFixed(0)} / ${value.leads} leads`;
     return label;
   };
-  parts.push(line("GA4", result.ga4), line("GSC", result.gsc), line("Ads", result.ads));
+  parts.push(line("GA4", result.ga4), line("GSC", result.gsc), line("Ads", result.ads), line("Meta", result.meta));
   return parts.join(" · ");
 }
 
@@ -56,6 +62,7 @@ async function syncOneBrand(
     ga4: { skipped: true, reason: "No GA4 property ID" },
     gsc: { skipped: true, reason: "No GSC site URL" },
     ads: { skipped: true, reason: "No Google Ads customer ID" },
+    meta: { skipped: true, reason: "No Meta ad account ID" },
   };
 
   if (creds?.ga4_property_id) {
@@ -88,6 +95,16 @@ async function syncOneBrand(
     }
   }
 
+  if (creds?.meta_ad_account_id) {
+    try {
+      const meta = await syncMetaAdsForBrand(brand.id, startDate, endDate);
+      row.meta = { ok: true, days: meta.days, spend: meta.spend, clicks: meta.clicks, leads: meta.leads };
+    } catch (metaError) {
+      await logFailure(brand.id, "meta_ads", metaError);
+      row.meta = { ok: false, error: metaError instanceof Error ? metaError.message : "Meta Ads sync failed" };
+    }
+  }
+
   return row;
 }
 
@@ -114,7 +131,7 @@ export async function syncGoogleMetricsForBrand(brandId: string, days = 14): Pro
 
   const { data: creds, error: credError } = await supabase
     .from("brand_credentials")
-    .select("ga4_property_id, gsc_site_url, google_ads_customer_id")
+    .select("ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id")
     .eq("brand_id", brandId)
     .maybeSingle();
   if (credError) throw new Error(credError.message);
@@ -143,7 +160,7 @@ export async function syncGoogleMetrics(days = 14): Promise<{
 
   const { data: credentials, error: credError } = await supabase
     .from("brand_credentials")
-    .select("brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id");
+    .select("brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id");
   if (credError) throw new Error(credError.message);
 
   const credsByBrand = new Map((credentials ?? []).map((row) => [row.brand_id as string, row as BrandCreds & { brand_id: string }]));

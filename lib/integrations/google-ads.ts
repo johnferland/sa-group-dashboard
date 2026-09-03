@@ -69,7 +69,12 @@ export async function syncGoogleAdsForBrand(
   const customerId = digitsOnly(creds.google_ads_customer_id as string);
   if (!customerId) throw new Error("Google Ads customer ID is empty after removing dashes.");
 
-  const loginCustomerId = digitsOnly(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "") || customerId;
+  const loginCustomerId = digitsOnly(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "");
+  if (!loginCustomerId) {
+    throw new Error(
+      "Set GOOGLE_ADS_LOGIN_CUSTOMER_ID to the MCC (parent) account ID. Each company field should be the client/sub-account only.",
+    );
+  }
   const accessToken = await getGoogleAccessToken();
   const version = adsApiVersion();
   const response = await fetch(
