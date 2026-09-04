@@ -54,7 +54,7 @@ export default async function DashboardHome({
               <MetricCard label="Total leads" metric={metrics.totalLeads} />
               <MetricCard label="Organic traffic" metric={metrics.organicTraffic} />
               <MetricCard label="Top 3 keywords" metric={metrics.keywordsTop3} />
-              <MetricCard label="Cost per conversion" metric={metrics.adsCostPerConversion} digits={2} prefix="$" />
+              <MetricCard label="Cost per conversion" metric={metrics.adsCostPerConversion} digits={2} prefix="$" lowerIsBetter />
             </div>
           </Card>
         ))}

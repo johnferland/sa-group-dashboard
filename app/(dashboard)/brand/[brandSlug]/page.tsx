@@ -154,28 +154,28 @@ export default async function BrandDashboard({
           <MetricCard label="Clicks" metric={metrics.clicks} />
           <MetricCard label="Impressions" metric={metrics.impressions} />
           <MetricCard label="CTR" metric={metrics.ctr} digits={1} suffix="%" />
-          <MetricCard label="Avg. position" metric={metrics.avgPosition} digits={1} />
+          <MetricCard label="Avg. position" metric={metrics.avgPosition} digits={1} lowerIsBetter />
         </div>
       </Section>
 
       <Section title="Google Ads">
         <div className="ds-grid">
-          <MetricCard label="Ad spend" metric={metrics.googleSpend} digits={2} prefix="$" />
+          <MetricCard label="Ad spend" metric={metrics.googleSpend} digits={2} prefix="$" lowerIsBetter />
           <MetricCard label="Impressions" metric={metrics.googleImpressions} />
           <MetricCard label="Clicks" metric={metrics.googleClicks} />
           <MetricCard label="Conversions" metric={metrics.googleConversions} />
-          <MetricCard label="Cost per conversion" metric={metrics.googleCostPerConversion} digits={2} prefix="$" />
+          <MetricCard label="Cost per conversion" metric={metrics.googleCostPerConversion} digits={2} prefix="$" lowerIsBetter />
         </div>
       </Section>
 
       <Section title="Meta Ads">
         <div className="ds-grid">
-          <MetricCard label="Ad spend" metric={metrics.metaSpend} digits={2} prefix="$" />
+          <MetricCard label="Ad spend" metric={metrics.metaSpend} digits={2} prefix="$" lowerIsBetter />
           <MetricCard label="Impressions" metric={metrics.metaImpressions} />
           <MetricCard label="Clicks" metric={metrics.metaClicks} />
           <MetricCard label="Leads" metric={metrics.metaLeads} />
           <MetricCard label="CTR" metric={metrics.metaCtr} digits={2} suffix="%" />
-          <MetricCard label="Cost per lead" metric={metrics.metaCostPerLead} digits={2} prefix="$" />
+          <MetricCard label="Cost per lead" metric={metrics.metaCostPerLead} digits={2} prefix="$" lowerIsBetter />
         </div>
       </Section>
 

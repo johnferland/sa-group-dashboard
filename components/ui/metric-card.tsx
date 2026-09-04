@@ -9,21 +9,23 @@ export function MetricCard({
   digits = 0,
   prefix = "",
   suffix = "",
+  lowerIsBetter = false,
 }: {
   label: string;
   metric: MetricValue;
   digits?: number;
   prefix?: string;
   suffix?: string;
+  /** When true, a decrease is green and an increase is red. */
+  lowerIsBetter?: boolean;
 }) {
-  const deltaClass =
-    metric.delta == null
-      ? "ds-delta"
-      : metric.delta > 0
-        ? "ds-delta ds-delta-up"
-        : metric.delta < 0
-          ? "ds-delta ds-delta-down"
-          : "ds-delta";
+  const favorable = lowerIsBetter ? metric.delta != null && metric.delta < 0 : metric.delta != null && metric.delta > 0;
+  const unfavorable = lowerIsBetter ? metric.delta != null && metric.delta > 0 : metric.delta != null && metric.delta < 0;
+  const deltaClass = favorable
+    ? "ds-delta ds-delta-up"
+    : unfavorable
+      ? "ds-delta ds-delta-down"
+      : "ds-delta";
 
   return (
     <Card>
