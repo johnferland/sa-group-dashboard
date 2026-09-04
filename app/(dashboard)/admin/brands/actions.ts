@@ -7,8 +7,6 @@ import { formatBrandSyncSummary, syncGoogleMetricsForBrand } from "@/lib/integra
 import { DASHBOARD_SYNC_DAYS } from "@/lib/integrations/sync-window";
 import { rotateWebLeadsWebhookSecret } from "@/lib/web-leads";
 
-export const maxDuration = 300;
-
 function formValue(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "");
 }
