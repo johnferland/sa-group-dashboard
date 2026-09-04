@@ -37,6 +37,10 @@ function adsApiVersion(): string {
   return process.env.GOOGLE_ADS_API_VERSION?.trim() || "v25";
 }
 
+function isAdsPermissionError(message: string): boolean {
+  return /login-customer-id|doesn't have permission|not accessible|USER_PERMISSION_DENIED/i.test(message);
+}
+
 function adsErrorMessage(data: AdsSearchResponse, status: number): string {
   const detailMessages =
     data.error?.details
@@ -45,6 +49,47 @@ function adsErrorMessage(data: AdsSearchResponse, status: number): string {
       .filter((message): message is string => Boolean(message)) ?? [];
   if (detailMessages.length > 0) return detailMessages.join("; ");
   return data.error?.message ?? `Google Ads API error ${status}`;
+}
+
+async function searchCampaignMetrics(input: {
+  customerId: string;
+  loginCustomerId?: string | null;
+  accessToken: string;
+  developerToken: string;
+  query: string;
+}): Promise<NonNullable<AdsSearchResponse["results"]>> {
+  const version = adsApiVersion();
+  const results: NonNullable<AdsSearchResponse["results"]> = [];
+  let pageToken: string | undefined;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${input.accessToken}`,
+    "developer-token": input.developerToken,
+    "Content-Type": "application/json",
+  };
+  if (input.loginCustomerId) headers["login-customer-id"] = input.loginCustomerId;
+
+  do {
+    const response = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${encodeURIComponent(input.customerId)}/googleAds:search`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: input.query,
+          pageSize: 10000,
+          ...(pageToken ? { pageToken } : {}),
+        }),
+      },
+    );
+    const data = (await response.json()) as AdsSearchResponse;
+    if (!response.ok || data.error) {
+      throw new Error(adsErrorMessage(data, response.status));
+    }
+    results.push(...(data.results ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return results;
 }
 
 export async function syncGoogleAdsForBrand(
@@ -70,50 +115,44 @@ export async function syncGoogleAdsForBrand(
   const customerId = digitsOnly(creds.google_ads_customer_id as string);
   if (!customerId) throw new Error("Google Ads customer ID is empty after removing dashes.");
 
-  const loginCustomerId = digitsOnly(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "");
-  if (!loginCustomerId) {
+  const mccId = digitsOnly(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "");
+  const accessToken = await getGoogleAccessToken();
+  const query = `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+
+  // IDA-style clients live inside the MCC and need login-customer-id.
+  // ODL-style accounts are linked but not a child — retry without the MCC header, then as self.
+  const loginAttempts: Array<{ label: string; loginCustomerId: string | null }> = [];
+  if (mccId && mccId !== customerId) loginAttempts.push({ label: "MCC", loginCustomerId: mccId });
+  loginAttempts.push({ label: "direct", loginCustomerId: null });
+  loginAttempts.push({ label: "self", loginCustomerId: customerId });
+
+  let results: NonNullable<AdsSearchResponse["results"]> | null = null;
+  let usedLogin = "direct";
+  let lastError = "";
+
+  for (const attempt of loginAttempts) {
+    try {
+      results = await searchCampaignMetrics({
+        customerId,
+        loginCustomerId: attempt.loginCustomerId,
+        accessToken,
+        developerToken,
+        query,
+      });
+      usedLogin = attempt.label;
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Google Ads sync failed";
+      if (!isAdsPermissionError(lastError)) throw new Error(lastError);
+    }
+  }
+
+  if (!results) {
     throw new Error(
-      "Set GOOGLE_ADS_LOGIN_CUSTOMER_ID to the MCC (parent) account ID. Each company field should be the client/sub-account only.",
+      lastError ||
+        "Could not access this Google Ads account via the MCC or as a linked account. Keep GOOGLE_ADS_LOGIN_CUSTOMER_ID as the MCC for clients inside it.",
     );
   }
-  const accessToken = await getGoogleAccessToken();
-  const version = adsApiVersion();
-  const query = `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`;
-  const results: NonNullable<AdsSearchResponse["results"]> = [];
-  let pageToken: string | undefined;
-
-  do {
-    const response = await fetch(
-      `https://googleads.googleapis.com/${version}/customers/${encodeURIComponent(customerId)}/googleAds:search`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "developer-token": developerToken,
-          "login-customer-id": loginCustomerId,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query,
-          pageSize: 10000,
-          ...(pageToken ? { pageToken } : {}),
-        }),
-      },
-    );
-
-    const data = (await response.json()) as AdsSearchResponse;
-    if (!response.ok || data.error) {
-      const message = adsErrorMessage(data, response.status);
-      if (/login-customer-id|doesn't have permission/i.test(message)) {
-        throw new Error(
-          `${message} Confirm GOOGLE_ADS_LOGIN_CUSTOMER_ID is the MCC parent that manages this client ID.`,
-        );
-      }
-      throw new Error(message);
-    }
-    results.push(...(data.results ?? []));
-    pageToken = data.nextPageToken;
-  } while (pageToken);
 
   const byDate = new Map<string, { spend: number; clicks: number; impressions: number; leads: number }>();
   for (const row of results) {
@@ -146,7 +185,7 @@ export async function syncGoogleAdsForBrand(
     brand_id: brandId,
     source: "google_ads",
     status: "success",
-    message: `Wrote ${rows.length} day(s) ${startDate}–${endDate}`,
+    message: `Wrote ${rows.length} day(s) ${startDate}–${endDate} via ${usedLogin} login`,
   });
 
   return {
