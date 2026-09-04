@@ -1,22 +1,29 @@
 import { endOfYesterday, format, startOfWeek, subDays } from "date-fns";
 import type { DateRange } from "@/lib/aggregation";
 
-export type PeriodKey = "week" | "month" | "quarter";
+export type PeriodKey = "week" | "month" | "quarter" | "year";
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
   week: "Week",
   month: "Month",
   quarter: "Quarter",
+  year: "Year",
+};
+
+const PERIOD_OFFSET_DAYS: Record<PeriodKey, number> = {
+  week: 6,
+  month: 29,
+  quarter: 89,
+  year: 364,
 };
 
 export function isPeriodKey(value: string | undefined): value is PeriodKey {
-  return value === "week" || value === "month" || value === "quarter";
+  return value === "week" || value === "month" || value === "quarter" || value === "year";
 }
 
 export function getPeriodRange(period: PeriodKey = "week"): DateRange {
   const end = endOfYesterday();
-  const length = period === "week" ? 6 : period === "month" ? 29 : 89;
-  const start = subDays(end, length);
+  const start = subDays(end, PERIOD_OFFSET_DAYS[period]);
   return {
     start: format(start, "yyyy-MM-dd"),
     end: format(end, "yyyy-MM-dd"),

@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { requireSuperAdmin } from "@/lib/auth";
 import { createBrand, updateBrand, type Brand } from "@/lib/brands";
 import { formatBrandSyncSummary, syncGoogleMetricsForBrand } from "@/lib/integrations/sync-google";
+import { DASHBOARD_SYNC_DAYS } from "@/lib/integrations/sync-window";
 import { rotateWebLeadsWebhookSecret } from "@/lib/web-leads";
+
+export const maxDuration = 300;
 
 function formValue(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "");
@@ -60,7 +63,7 @@ export async function syncBrandNowAction(formData: FormData) {
   let message = "";
   let failed = false;
   try {
-    const result = await syncGoogleMetricsForBrand(brandId, 14);
+    const result = await syncGoogleMetricsForBrand(brandId, DASHBOARD_SYNC_DAYS);
     failed =
       ("ok" in result.brand.ga4 && result.brand.ga4.ok === false) ||
       ("ok" in result.brand.gsc && result.brand.gsc.ok === false) ||

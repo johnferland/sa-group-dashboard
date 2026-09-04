@@ -6,6 +6,8 @@ import { Alert, Button, Field, Input, Page, PageHeader, Panel, Section, Select, 
 import { createBrandAction, syncBrandNowAction, updateBrandAction, rotateWebLeadsWebhookAction } from "./brands/actions";
 import { addPersonAction, assignPersonAction } from "./people-actions";
 
+export const maxDuration = 300;
+
 export default async function AdminPage({
   searchParams,
 }: {

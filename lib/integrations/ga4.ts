@@ -65,7 +65,7 @@ async function fetchDailySessions(propertyId: string, accessToken: string, start
     dateRanges: [{ startDate, endDate }],
     dimensions: [{ name: "date" }],
     metrics: [{ name: "sessions" }, { name: "keyEvents" }, { name: "newUsers" }],
-    limit: 1000,
+    limit: 10000,
   });
 
   const byDate = new Map<string, { sessions: number; conversions: number; newUsers: number }>();
@@ -92,7 +92,7 @@ async function fetchDailyOrganicSessions(propertyId: string, accessToken: string
         stringFilter: { matchType: "EXACT", value: "Organic Search" },
       },
     },
-    limit: 1000,
+    limit: 10000,
   });
 
   const byDate = new Map<string, number>();

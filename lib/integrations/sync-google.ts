@@ -1,9 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { isoDateDaysAgo } from "@/lib/integrations/google-auth";
 import { syncGa4ForBrand } from "@/lib/integrations/ga4";
 import { syncGscForBrand } from "@/lib/integrations/gsc";
 import { syncGoogleAdsForBrand } from "@/lib/integrations/google-ads";
 import { syncMetaAdsForBrand } from "@/lib/integrations/meta-ads";
+import { DASHBOARD_SYNC_DAYS, syncDateRange } from "@/lib/integrations/sync-window";
 
 export type SourceResult<T> = T | { ok: false; error: string } | { skipped: true; reason: string };
 
@@ -112,13 +112,12 @@ export function formatBrandSyncSummary(result: BrandSyncResult): string {
   return summarize(result);
 }
 
-export async function syncGoogleMetricsForBrand(brandId: string, days = 14): Promise<{
+export async function syncGoogleMetricsForBrand(brandId: string, days = DASHBOARD_SYNC_DAYS): Promise<{
   startDate: string;
   endDate: string;
   brand: BrandSyncResult;
 }> {
-  const startDate = isoDateDaysAgo(days);
-  const endDate = isoDateDaysAgo(1);
+  const { startDate, endDate } = syncDateRange(days);
   const supabase = getSupabaseAdmin();
 
   const { data: brand, error } = await supabase
@@ -146,13 +145,12 @@ export async function syncGoogleMetricsForBrand(brandId: string, days = 14): Pro
   return { startDate, endDate, brand: result };
 }
 
-export async function syncGoogleMetrics(days = 14): Promise<{
+export async function syncGoogleMetrics(days = DASHBOARD_SYNC_DAYS): Promise<{
   startDate: string;
   endDate: string;
   brands: BrandSyncResult[];
 }> {
-  const startDate = isoDateDaysAgo(days);
-  const endDate = isoDateDaysAgo(1);
+  const { startDate, endDate } = syncDateRange(days);
   const supabase = getSupabaseAdmin();
 
   const { data: brands, error } = await supabase.from("brands").select("id, slug, name").order("name");

@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { syncGa4ForBrand } from "@/lib/integrations/ga4";
+import { CRON_SYNC_DAYS, syncDateRange } from "@/lib/integrations/sync-window";
 
-// Auth is handled in middleware.ts (checks CRON_SECRET bearer token before this ever runs).
 export async function GET() {
   const supabase = getSupabaseAdmin();
   const { data: brands } = await supabase.from("brands").select("id");
-  const endDate = new Date();
-  endDate.setUTCDate(endDate.getUTCDate() - 1);
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - 6);
-  const start = startDate.toISOString().slice(0, 10);
-  const end = endDate.toISOString().slice(0, 10);
+  const { startDate, endDate } = syncDateRange(CRON_SYNC_DAYS);
 
   const results = await Promise.allSettled(
-    (brands ?? []).map((b) => syncGa4ForBrand(b.id as string, start, end)),
+    (brands ?? []).map((brand) => syncGa4ForBrand(brand.id as string, startDate, endDate)),
   );
 
-  const failures = results.filter((r) => r.status === "rejected").length;
+  const failures = results.filter((result) => result.status === "rejected").length;
   return NextResponse.json({ ok: failures === 0, total: results.length, failures });
 }

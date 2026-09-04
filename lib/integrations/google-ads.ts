@@ -11,6 +11,7 @@ type AdsSearchResponse = {
       conversions?: string | number;
     };
   }>;
+  nextPageToken?: string;
   error?: {
     message?: string;
     status?: string;
@@ -77,29 +78,45 @@ export async function syncGoogleAdsForBrand(
   }
   const accessToken = await getGoogleAccessToken();
   const version = adsApiVersion();
-  const response = await fetch(
-    `https://googleads.googleapis.com/${version}/customers/${encodeURIComponent(customerId)}/googleAds:search`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": developerToken,
-        "login-customer-id": loginCustomerId,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`,
-      }),
-    },
-  );
+  const query = `SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+  const results: NonNullable<AdsSearchResponse["results"]> = [];
+  let pageToken: string | undefined;
 
-  const data = (await response.json()) as AdsSearchResponse;
-  if (!response.ok || data.error) {
-    throw new Error(adsErrorMessage(data, response.status));
-  }
+  do {
+    const response = await fetch(
+      `https://googleads.googleapis.com/${version}/customers/${encodeURIComponent(customerId)}/googleAds:search`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": developerToken,
+          "login-customer-id": loginCustomerId,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query,
+          pageSize: 10000,
+          ...(pageToken ? { pageToken } : {}),
+        }),
+      },
+    );
+
+    const data = (await response.json()) as AdsSearchResponse;
+    if (!response.ok || data.error) {
+      const message = adsErrorMessage(data, response.status);
+      if (/login-customer-id|doesn't have permission/i.test(message)) {
+        throw new Error(
+          `${message} Confirm GOOGLE_ADS_LOGIN_CUSTOMER_ID is the MCC parent that manages this client ID.`,
+        );
+      }
+      throw new Error(message);
+    }
+    results.push(...(data.results ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
 
   const byDate = new Map<string, { spend: number; clicks: number; impressions: number; leads: number }>();
-  for (const row of data.results ?? []) {
+  for (const row of results) {
     const date = row.segments?.date;
     if (!date) continue;
     const current = byDate.get(date) ?? { spend: 0, clicks: 0, impressions: 0, leads: 0 };

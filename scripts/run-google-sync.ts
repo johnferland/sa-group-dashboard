@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { DASHBOARD_SYNC_DAYS } from "../lib/integrations/sync-window";
 import { syncGoogleMetrics } from "../lib/integrations/sync-google";
 
 function loadEnvLocal() {
@@ -11,7 +12,7 @@ function loadEnvLocal() {
 
 async function main() {
   loadEnvLocal();
-  const result = await syncGoogleMetrics(14);
+  const result = await syncGoogleMetrics(DASHBOARD_SYNC_DAYS);
   console.log(JSON.stringify(result, null, 2));
 }
 

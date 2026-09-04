@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentAppUser } from "@/lib/auth";
 import { syncGoogleMetrics } from "@/lib/integrations/sync-google";
+import { DASHBOARD_SYNC_DAYS } from "@/lib/integrations/sync-window";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const user = await getCurrentAppUser();
@@ -15,7 +16,10 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const days = Math.min(30, Math.max(1, Number(url.searchParams.get("days") ?? 14) || 14));
+  const days = Math.min(
+    DASHBOARD_SYNC_DAYS,
+    Math.max(1, Number(url.searchParams.get("days") ?? DASHBOARD_SYNC_DAYS) || DASHBOARD_SYNC_DAYS),
+  );
 
   try {
     const result = await syncGoogleMetrics(days);

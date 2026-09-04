@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { syncGoogleAdsForBrand } from "@/lib/integrations/google-ads";
+import { CRON_SYNC_DAYS, syncDateRange } from "@/lib/integrations/sync-window";
 
 export async function GET() {
   const supabase = getSupabaseAdmin();
   const { data: brands } = await supabase.from("brands").select("id");
-  const endDate = new Date();
-  endDate.setUTCDate(endDate.getUTCDate() - 1);
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - 6);
-  const start = startDate.toISOString().slice(0, 10);
-  const end = endDate.toISOString().slice(0, 10);
+  const { startDate, endDate } = syncDateRange(CRON_SYNC_DAYS);
 
   const results = await Promise.allSettled(
-    (brands ?? []).map((b) => syncGoogleAdsForBrand(b.id as string, start, end)),
+    (brands ?? []).map((brand) => syncGoogleAdsForBrand(brand.id as string, startDate, endDate)),
   );
 
-  const failures = results.filter((r) => r.status === "rejected").length;
+  const failures = results.filter((result) => result.status === "rejected").length;
   return NextResponse.json({ ok: failures === 0, total: results.length, failures });
 }

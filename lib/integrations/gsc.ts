@@ -91,7 +91,7 @@ async function queryGscWithFallback(
 
   for (const candidate of candidates) {
     try {
-      const report = await queryGsc(candidate, accessToken, startDate, endDate, ["date"]);
+      const report = await queryGsc(candidate, accessToken, startDate, endDate, ["date"], 25000);
       return { siteUrl: candidate, report };
     } catch (error) {
       lastError = `${candidate}: ${error instanceof Error ? error.message : "failed"}`;
