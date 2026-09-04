@@ -76,7 +76,6 @@ async function searchGoogleAds(input: {
         headers,
         body: JSON.stringify({
           query: input.query,
-          pageSize: 10000,
           ...(pageToken ? { pageToken } : {}),
         }),
       },
