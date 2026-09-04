@@ -26,6 +26,7 @@ export type BrandPeriodMetrics = {
   googleClicks: MetricValue;
   googleConversions: MetricValue;
   googleCostPerConversion: MetricValue;
+  adsCostPerConversion: MetricValue;
   metaSpend: MetricValue;
   metaImpressions: MetricValue;
   metaClicks: MetricValue;
@@ -328,6 +329,10 @@ export async function getBrandPeriodMetrics(
     googleCostPerConversion: metric(
       ratio(currentGoogle.spend, currentGoogle.leads),
       ratio(previousGoogle.spend, previousGoogle.leads),
+    ),
+    adsCostPerConversion: metric(
+      ratio(currentGoogle.spend + currentMeta.spend, currentGoogle.leads + currentMeta.leads),
+      ratio(previousGoogle.spend + previousMeta.spend, previousGoogle.leads + previousMeta.leads),
     ),
     metaSpend: metric(currentMeta.spend, previousMeta.spend),
     metaImpressions: metric(currentMeta.impressions, previousMeta.impressions),
