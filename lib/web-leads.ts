@@ -57,40 +57,133 @@ export type WebLeadRow = {
   email: string | null;
   submitted_at: string | null;
   count: number;
+  source: string | null;
 };
 
-export async function listRecentWebLeads(brandId: string, limit = 12): Promise<WebLeadRow[]> {
-  const supabase = getSupabaseAdmin();
-  const full = await supabase
-    .from("web_leads")
-    .select("id, received_at, first_name, last_name, email, submitted_at, count")
-    .eq("brand_id", brandId)
-    .order("received_at", { ascending: false })
-    .limit(limit);
-  if (!full.error) return (full.data ?? []) as WebLeadRow[];
-  if (!/does not exist|schema cache/i.test(full.error.message)) {
-    throw new Error(full.error.message);
-  }
+export const WEB_LEAD_PAGE_SIZES = [10, 25, 50] as const;
+export type WebLeadPageSize = (typeof WEB_LEAD_PAGE_SIZES)[number];
+const EXPORT_PAGE_SIZE = 1000;
+const EXPORT_MAX_ROWS = 10_000;
+const DETAIL_COLUMNS = "id, received_at, first_name, last_name, email, submitted_at, count, source";
+const BASIC_COLUMNS = "id, received_at, count, source";
 
-  const basic = await supabase
-    .from("web_leads")
-    .select("id, received_at, count")
-    .eq("brand_id", brandId)
-    .order("received_at", { ascending: false })
-    .limit(limit);
-  if (basic.error) {
-    if (/does not exist|schema cache/i.test(basic.error.message)) return [];
-    throw new Error(basic.error.message);
-  }
-  return (basic.data ?? []).map((row) => ({
-    id: row.id as string,
-    received_at: row.received_at as string,
+export function parseWebLeadPageSize(value: string | undefined): WebLeadPageSize {
+  const parsed = Number(value);
+  return WEB_LEAD_PAGE_SIZES.find((size) => size === parsed) ?? 10;
+}
+
+export function parseWebLeadPage(value: string | undefined): number {
+  const parsed = Math.round(Number(value ?? 1));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export function webLeadDate(row: WebLeadRow): string {
+  return (row.submitted_at ?? row.received_at).slice(0, 10);
+}
+
+function isMissingRelation(message: string | undefined): boolean {
+  return Boolean(message && /does not exist|schema cache/i.test(message));
+}
+
+function asWebLeadRow(row: Record<string, unknown>): WebLeadRow {
+  return {
+    id: String(row.id),
+    received_at: String(row.received_at),
+    first_name: row.first_name == null ? null : String(row.first_name),
+    last_name: row.last_name == null ? null : String(row.last_name),
+    email: row.email == null ? null : String(row.email),
+    submitted_at: row.submitted_at == null ? null : String(row.submitted_at),
     count: Number(row.count ?? 1),
-    first_name: null,
-    last_name: null,
-    email: null,
-    submitted_at: null,
-  }));
+    source: row.source == null ? null : String(row.source),
+  };
+}
+
+async function queryWebLeads(input: {
+  brandId: string;
+  start: string;
+  end: string;
+  rangeStart?: number;
+  rangeEnd?: number;
+}): Promise<{ rows: WebLeadRow[]; total: number }> {
+  const supabase = getSupabaseAdmin();
+  const run = async (columns: string) => {
+    let query = supabase
+      .from("web_leads")
+      .select(columns, { count: "exact" })
+      .eq("brand_id", input.brandId)
+      .gte("received_at", `${input.start}T00:00:00.000Z`)
+      .lte("received_at", `${input.end}T23:59:59.999Z`)
+      .order("received_at", { ascending: false });
+    if (input.rangeStart != null && input.rangeEnd != null) {
+      query = query.range(input.rangeStart, input.rangeEnd);
+    }
+    return query;
+  };
+
+  let result = await run(DETAIL_COLUMNS);
+  if (result.error && isMissingRelation(result.error.message)) {
+    result = await run(BASIC_COLUMNS);
+  }
+  if (result.error) {
+    if (isMissingRelation(result.error.message)) return { rows: [], total: 0 };
+    throw new Error(result.error.message);
+  }
+  return {
+    total: result.count ?? 0,
+    rows: (result.data ?? []).map((row) => asWebLeadRow(row as unknown as Record<string, unknown>)),
+  };
+}
+
+export async function listWebLeadsPage(input: {
+  brandId: string;
+  start: string;
+  end: string;
+  page: number;
+  perPage: WebLeadPageSize;
+}): Promise<{ rows: WebLeadRow[]; total: number; page: number }> {
+  const requestedPage = Math.max(1, input.page);
+  const rangeStart = (requestedPage - 1) * input.perPage;
+  const first = await queryWebLeads({
+    brandId: input.brandId,
+    start: input.start,
+    end: input.end,
+    rangeStart,
+    rangeEnd: rangeStart + input.perPage - 1,
+  });
+  const totalPages = Math.max(1, Math.ceil(first.total / input.perPage) || 1);
+  const page = Math.min(requestedPage, totalPages);
+  if (page === requestedPage || first.total === 0) {
+    return { rows: first.rows, total: first.total, page };
+  }
+  const clampedStart = (page - 1) * input.perPage;
+  const clamped = await queryWebLeads({
+    brandId: input.brandId,
+    start: input.start,
+    end: input.end,
+    rangeStart: clampedStart,
+    rangeEnd: clampedStart + input.perPage - 1,
+  });
+  return { rows: clamped.rows, total: first.total, page };
+}
+
+export async function listWebLeadsInRange(input: {
+  brandId: string;
+  start: string;
+  end: string;
+}): Promise<WebLeadRow[]> {
+  const rows: WebLeadRow[] = [];
+  for (let offset = 0; offset < EXPORT_MAX_ROWS; offset += EXPORT_PAGE_SIZE) {
+    const page = await queryWebLeads({
+      brandId: input.brandId,
+      start: input.start,
+      end: input.end,
+      rangeStart: offset,
+      rangeEnd: offset + EXPORT_PAGE_SIZE - 1,
+    });
+    rows.push(...page.rows);
+    if (page.rows.length < EXPORT_PAGE_SIZE || rows.length >= page.total) break;
+  }
+  return rows;
 }
 
 export async function ensureWebLeadsWebhookSecret(brandId: string): Promise<string> {

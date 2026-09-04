@@ -2,9 +2,22 @@ import { redirect } from "next/navigation";
 import { getCurrentAppUser, canAccessBrand, canLogWeeklyLeads } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getBrandPeriodMetrics, listRecentLeads } from "@/lib/metrics";
-import { listRecentWebLeads } from "@/lib/web-leads";
-import { currentWeekStart, getPeriodRange, isPeriodKey, type PeriodKey } from "@/lib/period";
+import {
+  listWebLeadsPage,
+  parseWebLeadPage,
+  parseWebLeadPageSize,
+} from "@/lib/web-leads";
+import {
+  currentWeekStart,
+  getPeriodRange,
+  isIsoDate,
+  isPeriodKey,
+  orderedDateRange,
+  utcTodayIso,
+  type PeriodKey,
+} from "@/lib/period";
 import { PeriodToggle } from "@/components/period-toggle";
+import { WebLeadsSection } from "@/components/web-leads-section";
 import {
   Alert,
   Button,
@@ -28,15 +41,37 @@ export default async function BrandDashboard({
   searchParams,
 }: {
   params: Promise<{ brandSlug: string }>;
-  searchParams: Promise<{ period?: string; saved?: string; error?: string }>;
+  searchParams: Promise<{
+    period?: string;
+    saved?: string;
+    error?: string;
+    leads_from?: string;
+    leads_to?: string;
+    leads_page?: string;
+    leads_per?: string;
+  }>;
 }) {
   const user = await getCurrentAppUser();
   if (!user) redirect("/sign-in");
 
   const { brandSlug } = await params;
-  const { period: periodParam, saved, error } = await searchParams;
+  const {
+    period: periodParam,
+    saved,
+    error,
+    leads_from: leadsFromParam,
+    leads_to: leadsToParam,
+    leads_page: leadsPageParam,
+    leads_per: leadsPerParam,
+  } = await searchParams;
   const period: PeriodKey = isPeriodKey(periodParam) ? periodParam : "week";
   const range = getPeriodRange(period);
+  const leadsPer = parseWebLeadPageSize(leadsPerParam);
+  const defaultLeadsRange = orderedDateRange(range.start, utcTodayIso());
+  const leadsRange = orderedDateRange(
+    isIsoDate(leadsFromParam) ? leadsFromParam : defaultLeadsRange.start,
+    isIsoDate(leadsToParam) ? leadsToParam : defaultLeadsRange.end,
+  );
 
   const supabase = getSupabaseAdmin();
   const { data: brand } = await supabase
@@ -61,10 +96,16 @@ export default async function BrandDashboard({
     );
   }
 
-  const [metrics, recentLeads, recentWebLeads] = await Promise.all([
+  const [metrics, recentLeads, webLeads] = await Promise.all([
     getBrandPeriodMetrics(brand.id as string, range),
     listRecentLeads(brand.id as string),
-    listRecentWebLeads(brand.id as string),
+    listWebLeadsPage({
+      brandId: brand.id as string,
+      start: leadsRange.start,
+      end: leadsRange.end,
+      page: parseWebLeadPage(leadsPageParam),
+      perPage: leadsPer,
+    }),
   ]);
   const canEnterLeads = canLogWeeklyLeads(user, brand.id as string);
   const weekStart = currentWeekStart();
@@ -75,7 +116,21 @@ export default async function BrandDashboard({
       <PageHeader
         title={brand.name as string}
         description={`${brand.domain as string} · ${range.start} to ${range.end}`}
-        actions={<PeriodToggle current={period} basePath={`/brand/${brandSlug}`} />}
+        actions={
+          <PeriodToggle
+            current={period}
+            basePath={`/brand/${brandSlug}`}
+            extraParams={
+              leadsFromParam || leadsToParam || leadsPerParam
+                ? {
+                    leads_from: leadsRange.start,
+                    leads_to: leadsRange.end,
+                    leads_per: String(leadsPer),
+                  }
+                : undefined
+            }
+          />
+        }
       />
 
       {saved ? <Alert tone="ok">{saved}</Alert> : null}
@@ -87,18 +142,6 @@ export default async function BrandDashboard({
           <MetricCard label="Web leads" metric={metrics.webLeads} />
           <MetricCard label="Offline leads" metric={metrics.offlineLeads} />
         </div>
-        {recentWebLeads.length ? (
-          <Table headers={["Date", "First name", "Last name", "Email"]}>
-            {recentWebLeads.map((row) => (
-              <tr key={row.id}>
-                <td>{(row.submitted_at ?? row.received_at).slice(0, 10)}</td>
-                <td>{row.first_name ?? "—"}</td>
-                <td>{row.last_name ?? "—"}</td>
-                <td>{row.email ?? "—"}</td>
-              </tr>
-            ))}
-          </Table>
-        ) : null}
       </Section>
 
       <Section title="Search">
@@ -205,6 +248,17 @@ export default async function BrandDashboard({
           </Table>
         ) : null}
       </Section>
+
+      <WebLeadsSection
+        brandSlug={brandSlug}
+        period={period}
+        start={leadsRange.start}
+        end={leadsRange.end}
+        perPage={leadsPer}
+        page={webLeads.page}
+        rows={webLeads.rows}
+        total={webLeads.total}
+      />
     </Page>
   );
 }

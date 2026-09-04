@@ -27,6 +27,18 @@ export function currentWeekStart(): string {
   return format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
 }
 
+export function utcTodayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function isIsoDate(value: string | undefined): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)));
+}
+
+export function orderedDateRange(start: string, end: string): { start: string; end: string } {
+  return start <= end ? { start, end } : { start: end, end: start };
+}
+
 export function formatNumber(value: number, digits = 0): string {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: digits,
