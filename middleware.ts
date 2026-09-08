@@ -23,7 +23,7 @@ export default clerkMiddleware(async (authFn, req) => {
     return;
   }
   if (!isPublicRoute(req)) {
-    await authFn.protect({ unauthenticatedUrl: "/sign-in" });
+    await authFn.protect();
   }
 });
 
