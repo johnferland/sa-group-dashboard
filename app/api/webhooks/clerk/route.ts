@@ -29,13 +29,15 @@ export async function POST(request: Request) {
 
   if (event.type === "user.created") {
     const supabase = getSupabaseAdmin();
-    const email = (event.data.email_addresses as Array<{ email_address: string }>)?.[0]
-      ?.email_address;
-    if (email) {
-      await supabase
-        .from("users")
-        .update({ clerk_user_id: event.data.id })
-        .ilike("email", email);
+    const emails = [
+      ...new Set(
+        ((event.data.email_addresses as Array<{ email_address?: string }> | undefined) ?? [])
+          .map((entry) => entry.email_address?.trim().toLowerCase())
+          .filter((email): email is string => Boolean(email)),
+      ),
+    ];
+    for (const email of emails) {
+      await supabase.from("users").update({ clerk_user_id: event.data.id }).ilike("email", email);
     }
   }
 

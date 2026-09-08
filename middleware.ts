@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/no-access(.*)",
   "/api/webhooks/clerk(.*)",
   "/api/webhooks/web-leads(.*)",
   "/api/cron(.*)",
@@ -22,7 +23,7 @@ export default clerkMiddleware(async (authFn, req) => {
     return;
   }
   if (!isPublicRoute(req)) {
-    await authFn.protect();
+    await authFn.protect({ unauthenticatedUrl: "/sign-in" });
   }
 });
 

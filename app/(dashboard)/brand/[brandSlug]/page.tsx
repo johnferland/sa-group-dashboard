@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentAppUser, canAccessBrand, canLogWeeklyLeads } from "@/lib/auth";
+import { requireAppUser, canAccessBrand, canLogWeeklyLeads } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getBrandPeriodMetrics, listRecentLeads } from "@/lib/metrics";
 import {
@@ -51,8 +51,7 @@ export default async function BrandDashboard({
     leads_per?: string;
   }>;
 }) {
-  const user = await getCurrentAppUser();
-  if (!user) redirect("/sign-in");
+  const user = await requireAppUser();
 
   const { brandSlug } = await params;
   const {

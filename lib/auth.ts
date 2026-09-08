@@ -12,8 +12,19 @@ export type AppUser = {
   brand_id: string | null;
 };
 
-function isPendingClerkId(value: string | null): boolean {
-  return !value || value.startsWith("pending:");
+function emailsFromClerkUser(clerk: {
+  primaryEmailAddress?: { emailAddress?: string | null } | null;
+  emailAddresses?: Array<{ emailAddress?: string | null }>;
+} | null): string[] {
+  if (!clerk) return [];
+  const emails = new Set<string>();
+  const primary = clerk.primaryEmailAddress?.emailAddress?.trim().toLowerCase();
+  if (primary) emails.add(primary);
+  for (const entry of clerk.emailAddresses ?? []) {
+    const value = entry.emailAddress?.trim().toLowerCase();
+    if (value) emails.add(value);
+  }
+  return [...emails];
 }
 
 export async function getCurrentAppUser(): Promise<AppUser | null> {
@@ -29,26 +40,30 @@ export async function getCurrentAppUser(): Promise<AppUser | null> {
 
   if (byClerk.data) return byClerk.data;
 
-  const clerk = await currentUser();
-  const email = clerk?.primaryEmailAddress?.emailAddress?.toLowerCase();
-  if (!email) return null;
+  const emails = emailsFromClerkUser(await currentUser());
+  for (const email of emails) {
+    const byEmail = await supabase
+      .from("users")
+      .select("id, clerk_user_id, email, role, brand_id")
+      .ilike("email", email)
+      .maybeSingle<AppUser>();
 
-  const byEmail = await supabase
-    .from("users")
-    .select("id, clerk_user_id, email, role, brand_id")
-    .ilike("email", email)
-    .maybeSingle<AppUser>();
+    if (!byEmail.data) continue;
 
-  if (!byEmail.data || !isPendingClerkId(byEmail.data.clerk_user_id)) return null;
+    if (byEmail.data.clerk_user_id !== userId) {
+      await supabase.from("users").update({ clerk_user_id: userId }).eq("id", byEmail.data.id);
+    }
+    return { ...byEmail.data, clerk_user_id: userId };
+  }
 
-  await supabase.from("users").update({ clerk_user_id: userId }).eq("id", byEmail.data.id);
-  return { ...byEmail.data, clerk_user_id: userId };
+  return null;
 }
 
 export async function requireAppUser(): Promise<AppUser> {
   const user = await getCurrentAppUser();
-  if (!user) redirect("/sign-in");
-  return user;
+  if (user) return user;
+  const { userId } = await auth();
+  redirect(userId ? "/no-access" : "/sign-in");
 }
 
 export function canOpenAdmin(user: AppUser): boolean {
@@ -70,8 +85,7 @@ export function canLogWeeklyLeads(user: AppUser, brandId: string): boolean {
 }
 
 export async function requireSuperAdmin(): Promise<AppUser> {
-  const user = await getCurrentAppUser();
-  if (!user) redirect("/sign-in");
+  const user = await requireAppUser();
   if (user.role !== "super_admin") redirect("/");
   return user;
 }

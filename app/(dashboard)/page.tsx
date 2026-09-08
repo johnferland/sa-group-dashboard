@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentAppUser } from "@/lib/auth";
+import { requireAppUser } from "@/lib/auth";
 import { getBrandById, listActiveBrands } from "@/lib/brands";
 import { getBrandPeriodMetrics } from "@/lib/metrics";
 import { getPeriodRange, isPeriodKey, type PeriodKey } from "@/lib/period";
@@ -11,8 +11,7 @@ export default async function DashboardHome({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const user = await getCurrentAppUser();
-  if (!user) redirect("/sign-in");
+  const user = await requireAppUser();
 
   if (user.role === "lab_manager") {
     if (!user.brand_id) {

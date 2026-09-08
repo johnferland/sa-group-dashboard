@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getCurrentAppUser, canLogWeeklyLeads } from "@/lib/auth";
+import { requireAppUser, canLogWeeklyLeads } from "@/lib/auth";
 import { upsertWeeklyLeads } from "@/lib/metrics";
 
 function formNumber(formData: FormData, key: string): number {
@@ -9,8 +9,7 @@ function formNumber(formData: FormData, key: string): number {
 }
 
 export async function saveWeeklyLeadsAction(formData: FormData) {
-  const user = await getCurrentAppUser();
-  if (!user) redirect("/sign-in");
+  const user = await requireAppUser();
 
   const brandId = String(formData.get("brand_id") ?? "");
   const brandSlug = String(formData.get("brand_slug") ?? "");
