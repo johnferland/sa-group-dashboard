@@ -50,7 +50,7 @@ export default async function DashboardHome({
           <Card key={brand.id} href={`/brand/${brand.slug}?period=${period}`}>
             <h2 className="ds-heading-sm">{brand.name}</h2>
             <TextMuted>{brand.domain}</TextMuted>
-            <div className="ds-grid-2" style={{ marginTop: "var(--space-3)" }}>
+            <div className="ds-stack" style={{ marginTop: "var(--space-3)" }}>
               <MetricCard label="Total leads" metric={metrics.totalLeads} />
               <MetricCard label="Organic traffic" metric={metrics.organicTraffic} />
               <MetricCard label="Top 3 keywords" metric={metrics.keywordsTop3} />
