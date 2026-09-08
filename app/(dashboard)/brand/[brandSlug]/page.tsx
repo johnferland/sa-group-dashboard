@@ -218,6 +218,16 @@ export default async function BrandDashboard({
                     defaultValue={thisWeek?.trade_show_leads ?? 0}
                   />
                 </Field>
+                <Field label="Social media">
+                  <Input
+                    type="number"
+                    name="social_media_leads"
+                    min={0}
+                    step={1}
+                    required
+                    defaultValue={thisWeek?.social_media_leads ?? 0}
+                  />
+                </Field>
               </div>
               <p>
                 <Button>Save leads</Button>
@@ -229,10 +239,14 @@ export default async function BrandDashboard({
         )}
 
         {recentLeads.length ? (
-          <Table headers={["Week starting", "Phone", "Emails", "Referrals", "Trade shows", "Offline total"]}>
+          <Table headers={["Week starting", "Phone", "Emails", "Referrals", "Trade shows", "Social media", "Offline total"]}>
             {recentLeads.map((row) => {
               const total =
-                row.phone_leads + row.email_leads + row.referral_leads + row.trade_show_leads || row.lead_count;
+                row.phone_leads +
+                  row.email_leads +
+                  row.referral_leads +
+                  row.trade_show_leads +
+                  row.social_media_leads || row.lead_count;
               return (
                 <tr key={row.id}>
                   <td>{row.week_start_date}</td>
@@ -240,6 +254,7 @@ export default async function BrandDashboard({
                   <td>{row.email_leads}</td>
                   <td>{row.referral_leads}</td>
                   <td>{row.trade_show_leads}</td>
+                  <td>{row.social_media_leads}</td>
                   <td>{total}</td>
                 </tr>
               );

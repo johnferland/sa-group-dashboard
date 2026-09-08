@@ -18,6 +18,7 @@ export async function saveWeeklyLeadsAction(formData: FormData) {
   const emailLeads = formNumber(formData, "email_leads");
   const referralLeads = formNumber(formData, "referral_leads");
   const tradeShowLeads = formNumber(formData, "trade_show_leads");
+  const socialMediaLeads = formNumber(formData, "social_media_leads");
   const period = String(formData.get("period") ?? "week");
   const back = `/brand/${brandSlug}?period=${encodeURIComponent(period)}`;
 
@@ -27,7 +28,7 @@ export async function saveWeeklyLeadsAction(formData: FormData) {
   if (!canLogWeeklyLeads(user, brandId)) {
     redirect(`${back}&error=${encodeURIComponent("You cannot enter leads for this brand.")}`);
   }
-  const values = [phoneLeads, emailLeads, referralLeads, tradeShowLeads];
+  const values = [phoneLeads, emailLeads, referralLeads, tradeShowLeads, socialMediaLeads];
   if (values.some((value) => !Number.isFinite(value) || value < 0)) {
     redirect(`${back}&error=${encodeURIComponent("Each lead count must be 0 or more.")}`);
   }
@@ -40,6 +41,7 @@ export async function saveWeeklyLeadsAction(formData: FormData) {
       emailLeads,
       referralLeads,
       tradeShowLeads,
+      socialMediaLeads,
       enteredBy: user.id,
     });
   } catch (error) {

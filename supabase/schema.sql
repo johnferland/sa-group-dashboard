@@ -92,6 +92,7 @@ create table manual_leads (
   email_leads integer not null default 0,
   referral_leads integer not null default 0,
   trade_show_leads integer not null default 0,
+  social_media_leads integer not null default 0,
   entered_by uuid not null references users(id),
   created_at timestamptz not null default now(),
   unique (brand_id, week_start_date)

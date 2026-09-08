@@ -81,6 +81,7 @@ export type OfflineLeadRow = {
   email_leads: number;
   referral_leads: number;
   trade_show_leads: number;
+  social_media_leads: number;
 };
 
 function offlineTotal(row: {
@@ -89,13 +90,31 @@ function offlineTotal(row: {
   email_leads?: number | null;
   referral_leads?: number | null;
   trade_show_leads?: number | null;
+  social_media_leads?: number | null;
 }): number {
   const phone = Number(row.phone_leads ?? 0);
   const email = Number(row.email_leads ?? 0);
   const referral = Number(row.referral_leads ?? 0);
   const tradeShow = Number(row.trade_show_leads ?? 0);
-  const split = phone + email + referral + tradeShow;
+  const socialMedia = Number(row.social_media_leads ?? 0);
+  const split = phone + email + referral + tradeShow + socialMedia;
   return split > 0 ? split : Number(row.lead_count ?? 0);
+}
+
+function mapOfflineLeadCounts(row: {
+  phone_leads?: number | null;
+  email_leads?: number | null;
+  referral_leads?: number | null;
+  trade_show_leads?: number | null;
+  social_media_leads?: number | null;
+}) {
+  return {
+    phone_leads: Number(row.phone_leads ?? 0),
+    email_leads: Number(row.email_leads ?? 0),
+    referral_leads: Number(row.referral_leads ?? 0),
+    trade_show_leads: Number(row.trade_show_leads ?? 0),
+    social_media_leads: Number(row.social_media_leads ?? 0),
+  };
 }
 
 function emptyAiMetrics(): Record<AiReferralKey, number> {
@@ -152,7 +171,7 @@ export async function getBrandPeriodMetrics(
       .lte("date", to),
     supabase
       .from("manual_leads")
-      .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
+      .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads, social_media_leads")
       .eq("brand_id", brandId)
       .gte("week_start_date", from)
       .lte("week_start_date", to),
@@ -214,6 +233,14 @@ export async function getBrandPeriodMetrics(
       ? (
           await supabase
             .from("manual_leads")
+            .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
+            .eq("brand_id", brandId)
+            .gte("week_start_date", from)
+            .lte("week_start_date", to)
+        ).data ??
+        (
+          await supabase
+            .from("manual_leads")
             .select("week_start_date, lead_count")
             .eq("brand_id", brandId)
             .gte("week_start_date", from)
@@ -253,10 +280,13 @@ export async function getBrandPeriodMetrics(
   const leadRows = (leadsData ?? []).map((row) => ({
     date: row.week_start_date as string,
     lead_count: Number(row.lead_count ?? 0),
-    phone_leads: Number((row as { phone_leads?: number }).phone_leads ?? 0),
-    email_leads: Number((row as { email_leads?: number }).email_leads ?? 0),
-    referral_leads: Number((row as { referral_leads?: number }).referral_leads ?? 0),
-    trade_show_leads: Number((row as { trade_show_leads?: number }).trade_show_leads ?? 0),
+    ...mapOfflineLeadCounts(row as {
+      phone_leads?: number | null;
+      email_leads?: number | null;
+      referral_leads?: number | null;
+      trade_show_leads?: number | null;
+      social_media_leads?: number | null;
+    }),
   }));
 
   const currentGa4 = inRange(ga4Rows, range);
@@ -354,28 +384,40 @@ export async function listRecentLeads(brandId: string, limit = 8): Promise<Offli
   const supabase = getSupabaseAdmin();
   const full = await supabase
     .from("manual_leads")
-    .select("id, week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
+    .select("id, week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads, social_media_leads")
     .eq("brand_id", brandId)
     .order("week_start_date", { ascending: false })
     .limit(limit);
-  const { data, error } =
+  const withoutSocial =
     full.error && /does not exist|schema cache/i.test(full.error.message)
+      ? await supabase
+          .from("manual_leads")
+          .select("id, week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
+          .eq("brand_id", brandId)
+          .order("week_start_date", { ascending: false })
+          .limit(limit)
+      : full;
+  const { data, error } =
+    withoutSocial.error && /does not exist|schema cache/i.test(withoutSocial.error.message)
       ? await supabase
           .from("manual_leads")
           .select("id, week_start_date, lead_count")
           .eq("brand_id", brandId)
           .order("week_start_date", { ascending: false })
           .limit(limit)
-      : full;
+      : withoutSocial;
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({
     id: row.id as string,
     week_start_date: row.week_start_date as string,
     lead_count: Number(row.lead_count ?? 0),
-    phone_leads: Number((row as { phone_leads?: number }).phone_leads ?? 0),
-    email_leads: Number((row as { email_leads?: number }).email_leads ?? 0),
-    referral_leads: Number((row as { referral_leads?: number }).referral_leads ?? 0),
-    trade_show_leads: Number((row as { trade_show_leads?: number }).trade_show_leads ?? 0),
+    ...mapOfflineLeadCounts(row as {
+      phone_leads?: number | null;
+      email_leads?: number | null;
+      referral_leads?: number | null;
+      trade_show_leads?: number | null;
+      social_media_leads?: number | null;
+    }),
   }));
 }
 
@@ -386,13 +428,15 @@ export async function upsertWeeklyLeads(input: {
   emailLeads: number;
   referralLeads: number;
   tradeShowLeads: number;
+  socialMediaLeads: number;
   enteredBy: string;
 }) {
   const phoneLeads = Math.max(0, Math.round(input.phoneLeads));
   const emailLeads = Math.max(0, Math.round(input.emailLeads));
   const referralLeads = Math.max(0, Math.round(input.referralLeads));
   const tradeShowLeads = Math.max(0, Math.round(input.tradeShowLeads));
-  const leadCount = phoneLeads + emailLeads + referralLeads + tradeShowLeads;
+  const socialMediaLeads = Math.max(0, Math.round(input.socialMediaLeads));
+  const leadCount = phoneLeads + emailLeads + referralLeads + tradeShowLeads + socialMediaLeads;
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("manual_leads").upsert(
     {
@@ -403,6 +447,7 @@ export async function upsertWeeklyLeads(input: {
       email_leads: emailLeads,
       referral_leads: referralLeads,
       trade_show_leads: tradeShowLeads,
+      social_media_leads: socialMediaLeads,
       entered_by: input.enteredBy,
     },
     { onConflict: "brand_id,week_start_date" },
