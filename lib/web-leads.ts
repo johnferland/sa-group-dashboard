@@ -16,21 +16,30 @@ export async function recordWebLeads(input: {
   brandId: string;
   count: number;
   source?: string | null;
+  attribution?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
   submittedAt?: string | null;
 }) {
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from("web_leads").insert({
+  const payload = {
     brand_id: input.brandId,
     count: input.count,
     source: input.source ?? null,
+    attribution: input.attribution ?? null,
     first_name: input.firstName ?? null,
     last_name: input.lastName ?? null,
     email: input.email ?? null,
     submitted_at: input.submittedAt ?? null,
-  });
+  };
+  const { error } = await supabase.from("web_leads").insert(payload);
+  if (error && isMissingRelation(error.message) && /attribution/i.test(error.message)) {
+    const { attribution: _attribution, ...withoutAttribution } = payload;
+    const retry = await supabase.from("web_leads").insert(withoutAttribution);
+    if (retry.error) throw new Error(retry.error.message);
+    return;
+  }
   if (error) throw new Error(error.message);
 }
 
@@ -58,13 +67,15 @@ export type WebLeadRow = {
   submitted_at: string | null;
   count: number;
   source: string | null;
+  attribution: string | null;
 };
 
 export const WEB_LEAD_PAGE_SIZES = [10, 25, 50] as const;
 export type WebLeadPageSize = (typeof WEB_LEAD_PAGE_SIZES)[number];
 const EXPORT_PAGE_SIZE = 1000;
 const EXPORT_MAX_ROWS = 10_000;
-const DETAIL_COLUMNS = "id, received_at, first_name, last_name, email, submitted_at, count, source";
+const DETAIL_COLUMNS = "id, received_at, first_name, last_name, email, submitted_at, count, source, attribution";
+const DETAIL_COLUMNS_NO_ATTRIBUTION = "id, received_at, first_name, last_name, email, submitted_at, count, source";
 const BASIC_COLUMNS = "id, received_at, count, source";
 
 export function parseWebLeadPageSize(value: string | undefined): WebLeadPageSize {
@@ -95,6 +106,7 @@ function asWebLeadRow(row: Record<string, unknown>): WebLeadRow {
     submitted_at: row.submitted_at == null ? null : String(row.submitted_at),
     count: Number(row.count ?? 1),
     source: row.source == null ? null : String(row.source),
+    attribution: row.attribution == null ? null : String(row.attribution),
   };
 }
 
@@ -121,6 +133,9 @@ async function queryWebLeads(input: {
   };
 
   let result = await run(DETAIL_COLUMNS);
+  if (result.error && isMissingRelation(result.error.message)) {
+    result = await run(DETAIL_COLUMNS_NO_ATTRIBUTION);
+  }
   if (result.error && isMissingRelation(result.error.message)) {
     result = await run(BASIC_COLUMNS);
   }

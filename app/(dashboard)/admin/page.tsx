@@ -134,7 +134,7 @@ export default async function AdminPage({
               <h3 className="ds-heading-sm">Web leads webhook</h3>
               <TextMuted>
                 Point the website form (or Zapier) here. POST JSON or form fields: first_name, last_name,
-                email, date, count. Header <code>X-Webhook-Secret</code>.
+                email, date, attribution, count. Header <code>X-Webhook-Secret</code>.
               </TextMuted>
               <Field label="Webhook URL">
                 <Input

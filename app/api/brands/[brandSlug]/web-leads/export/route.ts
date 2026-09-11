@@ -55,13 +55,13 @@ export async function GET(
   });
 
   const csv = toCsv(
-    ["Date", "First name", "Last name", "Email", "Source", "Count"],
+    ["Date", "First name", "Last name", "Email", "Attribution", "Count"],
     rows.map((row) => [
       webLeadDate(row),
       row.first_name,
       row.last_name,
       row.email,
-      row.source,
+      row.attribution,
       String(row.count),
     ]),
   );

@@ -91,13 +91,14 @@ export function WebLeadsSection({
           <TextMuted>No web leads in this date range.</TextMuted>
         ) : (
           <>
-            <Table headers={["Date", "First name", "Last name", "Email"]}>
+            <Table headers={["Date", "First name", "Last name", "Email", "Attribution"]}>
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td>{webLeadDate(row)}</td>
                   <td>{row.first_name ?? "—"}</td>
                   <td>{row.last_name ?? "—"}</td>
                   <td>{row.email ?? "—"}</td>
+                  <td>{row.attribution ?? "—"}</td>
                 </tr>
               ))}
             </Table>
