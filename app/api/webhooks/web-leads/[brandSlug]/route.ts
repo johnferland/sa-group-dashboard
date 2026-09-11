@@ -114,7 +114,7 @@ export async function POST(
       brandId: brand.id as string,
       count,
       source: pick(body, ["source"]),
-      attribution: pick(body, ["attribution", "utm_source", "lead_source"]),
+      attribution: pick(body, ["attribution", "utm_source", "lead_source", "source"]),
       firstName: pick(body, ["first_name", "firstname", "first-name", "your-name", "your_name"]),
       lastName: pick(body, ["last_name", "lastname", "last-name"]),
       email: pick(body, ["email", "your-email", "your_email", "email_address"]),

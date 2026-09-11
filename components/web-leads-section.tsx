@@ -9,6 +9,7 @@ import {
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
 import {
   WEB_LEAD_PAGE_SIZES,
+  webLeadAttribution,
   webLeadDate,
   type WebLeadPageSize,
   type WebLeadRow,
@@ -98,7 +99,7 @@ export function WebLeadsSection({
                   <td>{row.first_name ?? "—"}</td>
                   <td>{row.last_name ?? "—"}</td>
                   <td>{row.email ?? "—"}</td>
-                  <td>{row.attribution ?? "—"}</td>
+                  <td>{webLeadAttribution(row)}</td>
                 </tr>
               ))}
             </Table>

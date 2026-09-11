@@ -74,8 +74,6 @@ export const WEB_LEAD_PAGE_SIZES = [10, 25, 50] as const;
 export type WebLeadPageSize = (typeof WEB_LEAD_PAGE_SIZES)[number];
 const EXPORT_PAGE_SIZE = 1000;
 const EXPORT_MAX_ROWS = 10_000;
-const DETAIL_COLUMNS = "id, received_at, first_name, last_name, email, submitted_at, count, source, attribution";
-const DETAIL_COLUMNS_NO_ATTRIBUTION = "id, received_at, first_name, last_name, email, submitted_at, count, source";
 const BASIC_COLUMNS = "id, received_at, count, source";
 
 export function parseWebLeadPageSize(value: string | undefined): WebLeadPageSize {
@@ -92,11 +90,17 @@ export function webLeadDate(row: WebLeadRow): string {
   return (row.submitted_at ?? row.received_at).slice(0, 10);
 }
 
+export function webLeadAttribution(row: WebLeadRow): string {
+  const value = (row.attribution ?? row.source ?? "").trim();
+  return value || "—";
+}
+
 function isMissingRelation(message: string | undefined): boolean {
   return Boolean(message && /does not exist|schema cache/i.test(message));
 }
 
 function asWebLeadRow(row: Record<string, unknown>): WebLeadRow {
+  const attribution = row.attribution ?? row.Attribution;
   return {
     id: String(row.id),
     received_at: String(row.received_at),
@@ -106,7 +110,7 @@ function asWebLeadRow(row: Record<string, unknown>): WebLeadRow {
     submitted_at: row.submitted_at == null ? null : String(row.submitted_at),
     count: Number(row.count ?? 1),
     source: row.source == null ? null : String(row.source),
-    attribution: row.attribution == null ? null : String(row.attribution),
+    attribution: attribution == null || String(attribution).trim() === "" ? null : String(attribution).trim(),
   };
 }
 
@@ -132,10 +136,7 @@ async function queryWebLeads(input: {
     return query;
   };
 
-  let result = await run(DETAIL_COLUMNS);
-  if (result.error && isMissingRelation(result.error.message)) {
-    result = await run(DETAIL_COLUMNS_NO_ATTRIBUTION);
-  }
+  let result = await run("*");
   if (result.error && isMissingRelation(result.error.message)) {
     result = await run(BASIC_COLUMNS);
   }

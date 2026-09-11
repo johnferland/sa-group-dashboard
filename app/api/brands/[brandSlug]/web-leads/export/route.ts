@@ -3,7 +3,7 @@ import { canAccessBrand, getCurrentAppUser } from "@/lib/auth";
 import { toCsv } from "@/lib/csv";
 import { isIsoDate, orderedDateRange } from "@/lib/period";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { listWebLeadsInRange, webLeadDate } from "@/lib/web-leads";
+import { listWebLeadsInRange, webLeadAttribution, webLeadDate } from "@/lib/web-leads";
 
 export const dynamic = "force-dynamic";
 
@@ -56,14 +56,17 @@ export async function GET(
 
   const csv = toCsv(
     ["Date", "First name", "Last name", "Email", "Attribution", "Count"],
-    rows.map((row) => [
-      webLeadDate(row),
-      row.first_name,
-      row.last_name,
-      row.email,
-      row.attribution,
-      String(row.count),
-    ]),
+    rows.map((row) => {
+      const attribution = webLeadAttribution(row);
+      return [
+        webLeadDate(row),
+        row.first_name,
+        row.last_name,
+        row.email,
+        attribution === "—" ? "" : attribution,
+        String(row.count),
+      ];
+    }),
   );
 
   const filename = `${brand.slug}-web-leads-${range.start}-to-${range.end}.csv`;
