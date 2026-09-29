@@ -174,7 +174,7 @@ declare
 begin
   for t in select unnest(array[
     'brands', 'users', 'shared_credentials', 'brand_credentials', 'ga4_metrics',
-    'gsc_metrics', 'ads_metrics', 'manual_leads', 'web_leads', 'manual_deals', 'social_sqls',
+    'gsc_metrics', 'gsc_query_days', 'ads_metrics', 'manual_leads', 'web_leads', 'manual_deals', 'social_sqls',
     'leaderboard_snapshots', 'sync_logs'
   ])
   loop

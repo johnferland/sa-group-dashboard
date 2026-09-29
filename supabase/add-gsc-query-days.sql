@@ -8,3 +8,5 @@ create table if not exists gsc_query_days (
 );
 
 create index if not exists gsc_query_days_brand_date on gsc_query_days (brand_id, date);
+
+alter table gsc_query_days enable row level security;
