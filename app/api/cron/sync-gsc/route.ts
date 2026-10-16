@@ -11,7 +11,19 @@ export async function GET() {
   const { startDate, endDate } = syncDateRange(CRON_SYNC_DAYS);
 
   const results = await Promise.allSettled(
-    (brands ?? []).map((brand) => syncGscForBrand(brand.id as string, startDate, endDate)),
+    (brands ?? []).map(async (brand) => {
+      try {
+        return await syncGscForBrand(brand.id as string, startDate, endDate);
+      } catch (error) {
+        await supabase.from("sync_logs").insert({
+          brand_id: brand.id,
+          source: "gsc",
+          status: "error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+        throw error;
+      }
+    }),
   );
 
   const failures = results.filter((result) => result.status === "rejected").length;

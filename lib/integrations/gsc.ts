@@ -137,7 +137,8 @@ async function fetchKeywordData(
     try {
       const report = await queryGscAllRows(siteUrl, accessToken, chunk.start, chunk.end, ["date", "query"]);
       return keywordCountsByDate(report);
-    } catch {
+    } catch (error) {
+      console.error("GSC keyword pull failed", chunk, error);
       return new Map<string, { keywordsTop3: number; totalKeywords: number }>();
     }
   });
@@ -239,7 +240,11 @@ export async function syncGscForBrand(
     .filter((row) => row.date);
 
   if (rows.length > 0) {
-    const { error } = await supabase.from("gsc_metrics").upsert(rows, { onConflict: "brand_id,date" });
+    const { error } = await supabase.from("gsc_metrics").upsert(rows, {
+      onConflict: "brand_id,date",
+      // Missing keyword fields must keep DB defaults / existing values, not become NULL.
+      defaultToNull: false,
+    });
     if (error) throw new Error(error.message);
   }
 
