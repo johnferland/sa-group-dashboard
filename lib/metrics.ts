@@ -161,7 +161,7 @@ function aiBreakdown(
 export async function getBrandPeriodMetrics(
   brandId: string,
   _range: DateRange,
-  period: PeriodKey = "week",
+  period: PeriodKey = "month",
 ): Promise<BrandPeriodMetrics> {
   const supabase = getSupabaseAdmin();
   const today = utcTodayIso();

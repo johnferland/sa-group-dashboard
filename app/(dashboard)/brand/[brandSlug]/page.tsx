@@ -13,9 +13,8 @@ import {
   formatPeriodCaption,
   getPeriodRange,
   isIsoDate,
-  isPeriodKey,
   orderedDateRange,
-  type PeriodKey,
+  parsePeriodKey,
 } from "@/lib/period";
 import { PeriodToggle } from "@/components/period-toggle";
 import { WebLeadsSection } from "@/components/web-leads-section";
@@ -64,7 +63,7 @@ export default async function BrandDashboard({
     leads_page: leadsPageParam,
     leads_per: leadsPerParam,
   } = await searchParams;
-  const period: PeriodKey = isPeriodKey(periodParam) ? periodParam : "week";
+  const period = parsePeriodKey(periodParam);
   const range = getPeriodRange(period);
   const periodLabel = formatPeriodCaption(period, range);
   const leadsPer = parseWebLeadPageSize(leadsPerParam);

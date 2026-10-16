@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAppUser, canLogWeeklyLeads } from "@/lib/auth";
 import { upsertWeeklyLeads } from "@/lib/metrics";
+import { parsePeriodKey } from "@/lib/period";
 
 function formNumber(formData: FormData, key: string): number {
   return Number(formData.get(key) ?? 0);
@@ -19,7 +20,7 @@ export async function saveWeeklyLeadsAction(formData: FormData) {
   const referralLeads = formNumber(formData, "referral_leads");
   const tradeShowLeads = formNumber(formData, "trade_show_leads");
   const socialMediaLeads = formNumber(formData, "social_media_leads");
-  const period = String(formData.get("period") ?? "week");
+  const period = parsePeriodKey(String(formData.get("period") ?? ""));
   const back = `/brand/${brandSlug}?period=${encodeURIComponent(period)}`;
 
   if (!brandId || !weekStartDate) {

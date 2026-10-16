@@ -21,6 +21,8 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
   year: "Year",
 };
 
+export const DEFAULT_PERIOD: PeriodKey = "month";
+
 /** ISO yyyy-MM-dd → MM/dd/yy */
 export function formatShortDate(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -33,6 +35,10 @@ export function formatPeriodCaption(period: PeriodKey, range: DateRange): string
 
 export function isPeriodKey(value: string | undefined): value is PeriodKey {
   return value === "week" || value === "month" || value === "quarter" || value === "year";
+}
+
+export function parsePeriodKey(value: string | undefined): PeriodKey {
+  return isPeriodKey(value) ? value : DEFAULT_PERIOD;
 }
 
 /** Lab calendar date in America/New_York, not the Vercel UTC clock. */
@@ -51,7 +57,7 @@ function isoRange(start: Date, end: Date): DateRange {
   return { start: format(start, "yyyy-MM-dd"), end: format(end, "yyyy-MM-dd") };
 }
 
-export function getPeriodRange(period: PeriodKey = "week"): DateRange {
+export function getPeriodRange(period: PeriodKey = DEFAULT_PERIOD): DateRange {
   const today = calendarToday();
   if (period === "week") {
     const lastWeek = subWeeks(today, 1);
@@ -68,7 +74,7 @@ export function getPeriodRange(period: PeriodKey = "week"): DateRange {
   return isoRange(startOfYear(year), endOfYear(year));
 }
 
-export function getPreviousPeriodRange(period: PeriodKey = "week"): DateRange {
+export function getPreviousPeriodRange(period: PeriodKey = DEFAULT_PERIOD): DateRange {
   const today = calendarToday();
   if (period === "week") {
     const twoWeeksAgo = subWeeks(today, 2);
@@ -103,7 +109,7 @@ export function easternDateFromTimestamp(value: string): string {
 }
 
 /** Monday snapshots (or today if a sync already ran). Week compares this snapshot to last Monday. */
-export function getSnapshotAsOf(period: PeriodKey = "week", syncedToday = false): { current: string; previous: string } {
+export function getSnapshotAsOf(period: PeriodKey = DEFAULT_PERIOD, syncedToday = false): { current: string; previous: string } {
   const today = calendarToday();
   const thisMonday = startOfWeek(today, { weekStartsOn: 1 });
   const thisMondayIso = format(thisMonday, "yyyy-MM-dd");
