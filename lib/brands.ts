@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { generateWebLeadsWebhookSecret } from "@/lib/web-leads";
+import { generateMetaLeadsWebhookSecret, generateWebLeadsWebhookSecret } from "@/lib/web-leads";
 
 export type Brand = {
   id: string;
@@ -18,6 +18,7 @@ export type BrandCredentials = {
   google_ads_customer_id: string | null;
   meta_ad_account_id: string | null;
   web_leads_webhook_secret?: string | null;
+  meta_leads_webhook_secret?: string | null;
 };
 
 export type BrandWithCredentials = Brand & BrandCredentials;
@@ -140,13 +141,25 @@ export async function getBrandById(brandId: string): Promise<Brand | null> {
 export async function listBrandsWithCredentials(): Promise<BrandWithCredentials[]> {
   const supabase = getSupabaseAdmin();
   const brands = await listBrandRows();
-  const { data: credentials, error: credError } = await supabase
+  const withMeta = await supabase
     .from("brand_credentials")
-    .select("brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id, web_leads_webhook_secret");
+    .select(
+      "brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id, web_leads_webhook_secret, meta_leads_webhook_secret",
+    );
+  const credentialsQuery =
+    withMeta.error && missingColumn(withMeta.error.message)
+      ? await supabase
+          .from("brand_credentials")
+          .select(
+            "brand_id, ga4_property_id, gsc_site_url, google_ads_customer_id, meta_ad_account_id, web_leads_webhook_secret",
+          )
+      : withMeta;
 
-  if (credError) throw new Error(credError.message);
+  if (credentialsQuery.error) throw new Error(credentialsQuery.error.message);
 
-  const byBrandId = new Map((credentials ?? []).map((row) => [row.brand_id as string, row]));
+  const byBrandId = new Map(
+    (credentialsQuery.data ?? []).map((row) => [row.brand_id as string, row as Record<string, unknown>]),
+  );
 
   return brands.map((brand) => {
     const creds = byBrandId.get(brand.id);
@@ -157,19 +170,29 @@ export async function listBrandsWithCredentials(): Promise<BrandWithCredentials[
       google_ads_customer_id: (creds?.google_ads_customer_id as string | null) ?? null,
       meta_ad_account_id: (creds?.meta_ad_account_id as string | null) ?? null,
       web_leads_webhook_secret: (creds?.web_leads_webhook_secret as string | null) ?? null,
+      meta_leads_webhook_secret: (creds?.meta_leads_webhook_secret as string | null) ?? null,
     };
   });
 }
 
 async function upsertCredentials(brandId: string, input: ReturnType<typeof normalizeBrandInput>) {
   const supabase = getSupabaseAdmin();
-  const { data: existing } = await supabase
+  const withMeta = await supabase
     .from("brand_credentials")
-    .select("web_leads_webhook_secret")
+    .select("web_leads_webhook_secret, meta_leads_webhook_secret")
     .eq("brand_id", brandId)
     .maybeSingle();
+  const existingQuery =
+    withMeta.error && missingColumn(withMeta.error.message)
+      ? await supabase
+          .from("brand_credentials")
+          .select("web_leads_webhook_secret")
+          .eq("brand_id", brandId)
+          .maybeSingle()
+      : withMeta;
+  const existing = (existingQuery.data ?? null) as Record<string, unknown> | null;
 
-  const { error } = await supabase.from("brand_credentials").upsert({
+  const payload: Record<string, unknown> = {
     brand_id: brandId,
     ga4_property_id: input.ga4_property_id,
     gsc_site_url: input.gsc_site_url,
@@ -177,8 +200,18 @@ async function upsertCredentials(brandId: string, input: ReturnType<typeof norma
     meta_ad_account_id: input.meta_ad_account_id,
     web_leads_webhook_secret:
       (existing?.web_leads_webhook_secret as string | null) ?? generateWebLeadsWebhookSecret(),
+    meta_leads_webhook_secret:
+      (existing?.meta_leads_webhook_secret as string | null) ?? generateMetaLeadsWebhookSecret(),
     updated_at: new Date().toISOString(),
-  });
+  };
+
+  const { error } = await supabase.from("brand_credentials").upsert(payload);
+  if (error && missingColumn(error.message)) {
+    const { meta_leads_webhook_secret: _meta, ...withoutMeta } = payload;
+    const retry = await supabase.from("brand_credentials").upsert(withoutMeta);
+    if (retry.error) throw new Error(retry.error.message);
+    return;
+  }
   if (error) throw new Error(error.message);
 }
 

@@ -40,6 +40,7 @@ create table brand_credentials (
   google_ads_customer_id text,
   meta_ad_account_id text,
   web_leads_webhook_secret text,
+  meta_leads_webhook_secret text,
   updated_at timestamptz not null default now()
 );
 

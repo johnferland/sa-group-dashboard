@@ -4,7 +4,12 @@ import { listManagedUsers } from "@/lib/users";
 import { BrandFormFields } from "@/components/brand-form-fields";
 import { SyncNowButton } from "@/components/sync-now-button";
 import { Alert, Button, Field, Input, Page, PageHeader, Panel, Section, Select, Table, TextMuted } from "@/components/ui";
-import { createBrandAction, updateBrandAction, rotateWebLeadsWebhookAction } from "./brands/actions";
+import {
+  createBrandAction,
+  updateBrandAction,
+  rotateWebLeadsWebhookAction,
+  rotateMetaLeadsWebhookAction,
+} from "./brands/actions";
 import { addPersonAction, assignPersonAction } from "./people-actions";
 
 export default async function AdminPage({
@@ -145,6 +150,32 @@ export default async function AdminPage({
                   </Field>
                 </div>
                 <form action={rotateWebLeadsWebhookAction}>
+                  <input type="hidden" name="brand_id" value={brand.id} />
+                  <Button variant="secondary">Generate / rotate secret</Button>
+                </form>
+              </div>
+              <div className="ds-stack ds-company-webhook">
+                <h3 className="ds-heading-sm">Meta leads webhook</h3>
+                <TextMuted>
+                  Point Meta Instant Forms (or Zapier from Lead Ads) here. Same fields as the website webhook.
+                  Attribution defaults to Meta Ads. Leads show in the same Web leads list on the lab page.
+                  For Meta&apos;s native leadgen webhook, use this URL and this secret as the verify token.
+                </TextMuted>
+                <div className="ds-form-grid">
+                  <Field label="Webhook URL">
+                    <Input
+                      readOnly
+                      defaultValue={`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/webhooks/meta-leads/${brand.slug}`}
+                    />
+                  </Field>
+                  <Field label="Secret">
+                    <Input
+                      readOnly
+                      defaultValue={brand.meta_leads_webhook_secret ?? "Save the company once to generate a secret"}
+                    />
+                  </Field>
+                </div>
+                <form action={rotateMetaLeadsWebhookAction}>
                   <input type="hidden" name="brand_id" value={brand.id} />
                   <Button variant="secondary">Generate / rotate secret</Button>
                 </form>

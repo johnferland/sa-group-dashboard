@@ -5,6 +5,10 @@ export function generateWebLeadsWebhookSecret(): string {
   return `wl_${randomBytes(24).toString("hex")}`;
 }
 
+export function generateMetaLeadsWebhookSecret(): string {
+  return `ml_${randomBytes(24).toString("hex")}`;
+}
+
 export function webhookSecretsMatch(provided: string, stored: string): boolean {
   const left = Buffer.from(provided);
   const right = Buffer.from(stored);
@@ -233,5 +237,34 @@ export async function rotateWebLeadsWebhookSecret(brandId: string): Promise<stri
     updated_at: new Date().toISOString(),
   });
   if (error) throw new Error(error.message);
+  return secret;
+}
+
+export async function rotateMetaLeadsWebhookSecret(brandId: string): Promise<string> {
+  const supabase = getSupabaseAdmin();
+  const secret = generateMetaLeadsWebhookSecret();
+  const { data, error } = await supabase
+    .from("brand_credentials")
+    .update({
+      meta_leads_webhook_secret: secret,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("brand_id", brandId)
+    .select("brand_id")
+    .maybeSingle();
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) {
+      throw new Error("Run supabase/add-meta-leads-webhook-secret.sql in Supabase, then try again.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    const insert = await supabase.from("brand_credentials").insert({
+      brand_id: brandId,
+      meta_leads_webhook_secret: secret,
+      updated_at: new Date().toISOString(),
+    });
+    if (insert.error) throw new Error(insert.error.message);
+  }
   return secret;
 }

@@ -292,6 +292,9 @@
 .ds-company-webhook {
   margin-top: var(--space-6);
 }
+.ds-company-webhook + .ds-company-webhook {
+  margin-top: var(--space-8);
+}
 
 .ds-shell {
   display: grid;
