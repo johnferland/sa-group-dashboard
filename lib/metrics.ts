@@ -1,5 +1,13 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { easternDateFromTimestamp, getPreviousPeriodRange, getSnapshotAsOf, utcTodayIso, type PeriodKey } from "@/lib/period";
+import {
+  addIsoDays,
+  easternDateFromTimestamp,
+  getPreviousPeriodRange,
+  getSnapshotAsOf,
+  utcTodayIso,
+  weekOverlapsRange,
+  type PeriodKey,
+} from "@/lib/period";
 import { percentChange, sum, weightedAverage, type DateRange } from "@/lib/aggregation";
 import { AI_REFERRAL_PATTERNS, type AiReferralKey } from "@/lib/integrations/ga4";
 import { sumWebLeads } from "@/lib/web-leads";
@@ -108,6 +116,17 @@ export type OfflineLeadRow = {
   social_media_leads: number;
 };
 
+export function offlineLeadTotal(row: {
+  lead_count?: number | null;
+  phone_leads?: number | null;
+  email_leads?: number | null;
+  referral_leads?: number | null;
+  trade_show_leads?: number | null;
+  social_media_leads?: number | null;
+}): number {
+  return offlineTotal(row);
+}
+
 function offlineTotal(row: {
   lead_count?: number | null;
   phone_leads?: number | null;
@@ -213,7 +232,7 @@ export async function getBrandPeriodMetrics(
       .from("manual_leads")
       .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads, social_media_leads")
       .eq("brand_id", brandId)
-      .gte("week_start_date", previousRange.start)
+      .gte("week_start_date", addIsoDays(previousRange.start, -6))
       .lte("week_start_date", periodRange.end)
       .limit(rowLimit),
     sumWebLeads(brandId, periodRange.start, webLeadsEnd(periodRange.end)),
@@ -277,7 +296,7 @@ export async function getBrandPeriodMetrics(
             .from("manual_leads")
             .select("week_start_date, lead_count, phone_leads, email_leads, referral_leads, trade_show_leads")
             .eq("brand_id", brandId)
-            .gte("week_start_date", previousRange.start)
+            .gte("week_start_date", addIsoDays(previousRange.start, -6))
             .lte("week_start_date", periodRange.end)
             .limit(rowLimit)
         ).data ??
@@ -286,7 +305,7 @@ export async function getBrandPeriodMetrics(
             .from("manual_leads")
             .select("week_start_date, lead_count")
             .eq("brand_id", brandId)
-            .gte("week_start_date", previousRange.start)
+            .gte("week_start_date", addIsoDays(previousRange.start, -6))
             .lte("week_start_date", periodRange.end)
             .limit(rowLimit)
         ).data
@@ -341,8 +360,8 @@ export async function getBrandPeriodMetrics(
   const previousGsc = through(gscRows, asOf.previous);
   const currentGscPeriod = inRange(gscRows, periodRange);
   const previousGscPeriod = inRange(gscRows, previousRange);
-  const currentLeads = inRange(leadRows, periodRange);
-  const previousLeads = inRange(leadRows, previousRange);
+  const currentLeads = leadRows.filter((row) => weekOverlapsRange(row.date, periodRange));
+  const previousLeads = leadRows.filter((row) => weekOverlapsRange(row.date, previousRange));
   const currentAds = inRange(adsRows, periodRange);
   const previousAds = inRange(adsRows, previousRange);
 
@@ -435,7 +454,7 @@ export async function getBrandPeriodMetrics(
   };
 }
 
-export async function listRecentLeads(brandId: string, limit = 8): Promise<OfflineLeadRow[]> {
+export async function listRecentLeads(brandId: string, limit = 52): Promise<OfflineLeadRow[]> {
   const supabase = getSupabaseAdmin();
   const full = await supabase
     .from("manual_leads")
@@ -493,19 +512,23 @@ export async function upsertWeeklyLeads(input: {
   const socialMediaLeads = Math.max(0, Math.round(input.socialMediaLeads));
   const leadCount = phoneLeads + emailLeads + referralLeads + tradeShowLeads + socialMediaLeads;
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from("manual_leads").upsert(
-    {
-      brand_id: input.brandId,
-      week_start_date: input.weekStartDate,
-      lead_count: leadCount,
-      phone_leads: phoneLeads,
-      email_leads: emailLeads,
-      referral_leads: referralLeads,
-      trade_show_leads: tradeShowLeads,
-      social_media_leads: socialMediaLeads,
-      entered_by: input.enteredBy,
-    },
-    { onConflict: "brand_id,week_start_date" },
-  );
+  const payload = {
+    brand_id: input.brandId,
+    week_start_date: input.weekStartDate,
+    lead_count: leadCount,
+    phone_leads: phoneLeads,
+    email_leads: emailLeads,
+    referral_leads: referralLeads,
+    trade_show_leads: tradeShowLeads,
+    social_media_leads: socialMediaLeads,
+    entered_by: input.enteredBy,
+  };
+  const { error } = await supabase.from("manual_leads").upsert(payload, { onConflict: "brand_id,week_start_date" });
+  if (error && /social_media_leads/i.test(error.message) && /does not exist|schema cache/i.test(error.message)) {
+    const { social_media_leads: _social, ...withoutSocial } = payload;
+    const retry = await supabase.from("manual_leads").upsert(withoutSocial, { onConflict: "brand_id,week_start_date" });
+    if (retry.error) throw new Error(retry.error.message);
+    return;
+  }
   if (error) throw new Error(error.message);
 }

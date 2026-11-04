@@ -11,13 +11,16 @@ import {
   clampToToday,
   currentWeekStart,
   formatPeriodCaption,
+  formatShortDate,
   getPeriodRange,
   isIsoDate,
   orderedDateRange,
   parsePeriodKey,
+  weekStartMonday,
 } from "@/lib/period";
 import { PeriodToggle } from "@/components/period-toggle";
 import { WebLeadsSection } from "@/components/web-leads-section";
+import { OfflineLeadsTable } from "@/components/offline-leads-section";
 import {
   Alert,
   Button,
@@ -28,7 +31,6 @@ import {
   PageHeader,
   Panel,
   Section,
-  Table,
   TextMuted,
 } from "@/components/ui";
 import { saveWeeklyLeadsAction } from "./actions";
@@ -49,6 +51,7 @@ export default async function BrandDashboard({
     leads_to?: string;
     leads_page?: string;
     leads_per?: string;
+    offline_week?: string;
   }>;
 }) {
   const user = await requireAppUser();
@@ -62,6 +65,7 @@ export default async function BrandDashboard({
     leads_to: leadsToParam,
     leads_page: leadsPageParam,
     leads_per: leadsPerParam,
+    offline_week: offlineWeekParam,
   } = await searchParams;
   const period = parsePeriodKey(periodParam);
   const range = getPeriodRange(period);
@@ -108,8 +112,17 @@ export default async function BrandDashboard({
     }),
   ]);
   const canEnterLeads = canLogWeeklyLeads(user, brand.id as string);
-  const weekStart = currentWeekStart();
-  const thisWeek = recentLeads.find((row) => row.week_start_date === weekStart);
+  const thisWeekStart = currentWeekStart();
+  const formWeekStart = isIsoDate(offlineWeekParam) ? weekStartMonday(offlineWeekParam) : thisWeekStart;
+  const formWeek = recentLeads.find((row) => row.week_start_date === formWeekStart);
+  const leadsQuery =
+    leadsFromParam || leadsToParam || leadsPerParam
+      ? {
+          leads_from: leadsRange.start,
+          leads_to: leadsRange.end,
+          leads_per: String(leadsPer),
+        }
+      : undefined;
 
   return (
     <Page brand={brandSlug}>
@@ -120,15 +133,10 @@ export default async function BrandDashboard({
           <PeriodToggle
             current={period}
             basePath={`/brand/${brandSlug}`}
-            extraParams={
-              leadsFromParam || leadsToParam || leadsPerParam
-                ? {
-                    leads_from: leadsRange.start,
-                    leads_to: leadsRange.end,
-                    leads_per: String(leadsPer),
-                  }
-                : undefined
-            }
+            extraParams={{
+              ...leadsQuery,
+              ...(isIsoDate(offlineWeekParam) ? { offline_week: formWeekStart } : {}),
+            }}
           />
         }
       />
@@ -201,79 +209,105 @@ export default async function BrandDashboard({
       </Section>
 
       <Section title="Offline leads">
-        {canEnterLeads ? (
-          <Panel className="ds-stack">
-            <h3 className="ds-heading-sm">Log this week&apos;s offline leads</h3>
-            <form action={saveWeeklyLeadsAction} className="ds-stack">
-              <input type="hidden" name="brand_id" value={brand.id as string} />
-              <input type="hidden" name="brand_slug" value={brandSlug} />
-              <input type="hidden" name="period" value={period} />
-              <div className="ds-form-grid">
-                <Field label="Week starting">
-                  <Input type="date" name="week_start_date" defaultValue={weekStart} required />
-                </Field>
-                <Field label="Phone call leads">
-                  <Input type="number" name="phone_leads" min={0} step={1} required defaultValue={thisWeek?.phone_leads ?? 0} />
-                </Field>
-                <Field label="Emails">
-                  <Input type="number" name="email_leads" min={0} step={1} required defaultValue={thisWeek?.email_leads ?? 0} />
-                </Field>
-                <Field label="Referrals">
-                  <Input type="number" name="referral_leads" min={0} step={1} required defaultValue={thisWeek?.referral_leads ?? 0} />
-                </Field>
-                <Field label="Trade shows">
-                  <Input
-                    type="number"
-                    name="trade_show_leads"
-                    min={0}
-                    step={1}
-                    required
-                    defaultValue={thisWeek?.trade_show_leads ?? 0}
-                  />
-                </Field>
-                <Field label="Social media">
-                  <Input
-                    type="number"
-                    name="social_media_leads"
-                    min={0}
-                    step={1}
-                    required
-                    defaultValue={thisWeek?.social_media_leads ?? 0}
-                  />
-                </Field>
-              </div>
-              <p>
-                <Button>Save leads</Button>
-              </p>
-            </form>
-          </Panel>
-        ) : (
-          <TextMuted>Lead entry is limited to Super Admins and this lab&apos;s manager.</TextMuted>
-        )}
+        <div id="offline-leads" className="ds-stack">
+          {canEnterLeads ? (
+            <Panel className="ds-stack">
+              <h3 className="ds-heading-sm">
+                {formWeekStart === thisWeekStart
+                  ? "Log this week's offline leads"
+                  : `Edit week of ${formatShortDate(formWeekStart)}`}
+              </h3>
+              <TextMuted>
+                Each row is a Monday–Sunday week. The Offline leads card above totals weeks that overlap{" "}
+                {periodLabel}.
+              </TextMuted>
+              <form key={formWeekStart} action={saveWeeklyLeadsAction} className="ds-stack">
+                <input type="hidden" name="brand_id" value={brand.id as string} />
+                <input type="hidden" name="brand_slug" value={brandSlug} />
+                <input type="hidden" name="period" value={period} />
+                <div className="ds-form-grid">
+                  <Field label="Week starting">
+                    <Input type="date" name="week_start_date" defaultValue={formWeekStart} required />
+                  </Field>
+                  <Field label="Phone call leads">
+                    <Input
+                      type="number"
+                      name="phone_leads"
+                      min={0}
+                      step={1}
+                      required
+                      defaultValue={formWeek?.phone_leads ?? 0}
+                    />
+                  </Field>
+                  <Field label="Emails">
+                    <Input
+                      type="number"
+                      name="email_leads"
+                      min={0}
+                      step={1}
+                      required
+                      defaultValue={formWeek?.email_leads ?? 0}
+                    />
+                  </Field>
+                  <Field label="Referrals">
+                    <Input
+                      type="number"
+                      name="referral_leads"
+                      min={0}
+                      step={1}
+                      required
+                      defaultValue={formWeek?.referral_leads ?? 0}
+                    />
+                  </Field>
+                  <Field label="Trade shows">
+                    <Input
+                      type="number"
+                      name="trade_show_leads"
+                      min={0}
+                      step={1}
+                      required
+                      defaultValue={formWeek?.trade_show_leads ?? 0}
+                    />
+                  </Field>
+                  <Field label="Social media">
+                    <Input
+                      type="number"
+                      name="social_media_leads"
+                      min={0}
+                      step={1}
+                      required
+                      defaultValue={formWeek?.social_media_leads ?? 0}
+                    />
+                  </Field>
+                </div>
+                <div className="ds-row">
+                  <Button>{formWeek ? "Save week" : "Save leads"}</Button>
+                  {formWeekStart !== thisWeekStart ? (
+                    <Button
+                      href={`/brand/${brandSlug}?${new URLSearchParams({
+                        period,
+                        ...(leadsQuery ?? {}),
+                      })}#offline-leads`}
+                      variant="secondary"
+                    >
+                      Log this week
+                    </Button>
+                  ) : null}
+                </div>
+              </form>
+            </Panel>
+          ) : (
+            <TextMuted>Lead entry is limited to Super Admins and this lab&apos;s manager.</TextMuted>
+          )}
 
-        {recentLeads.length ? (
-          <Table headers={["Week starting", "Phone", "Emails", "Referrals", "Trade shows", "Social media", "Offline total"]}>
-            {recentLeads.map((row) => {
-              const total =
-                row.phone_leads +
-                  row.email_leads +
-                  row.referral_leads +
-                  row.trade_show_leads +
-                  row.social_media_leads || row.lead_count;
-              return (
-                <tr key={row.id}>
-                  <td>{row.week_start_date}</td>
-                  <td>{row.phone_leads}</td>
-                  <td>{row.email_leads}</td>
-                  <td>{row.referral_leads}</td>
-                  <td>{row.trade_show_leads}</td>
-                  <td>{row.social_media_leads}</td>
-                  <td>{total}</td>
-                </tr>
-              );
-            })}
-          </Table>
-        ) : null}
+          <OfflineLeadsTable
+            brandSlug={brandSlug}
+            period={period}
+            canEnter={canEnterLeads}
+            rows={recentLeads}
+            extraParams={leadsQuery}
+          />
+        </div>
       </Section>
 
       <WebLeadsSection

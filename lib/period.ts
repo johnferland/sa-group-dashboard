@@ -1,4 +1,5 @@
 import {
+  addDays,
   endOfMonth,
   endOfWeek,
   endOfYear,
@@ -93,6 +94,30 @@ export function getPreviousPeriodRange(period: PeriodKey = DEFAULT_PERIOD): Date
 
 export function currentWeekStart(): string {
   return format(startOfWeek(calendarToday(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+function parseLocalIso(iso: string): Date {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function addIsoDays(iso: string, days: number): string {
+  return format(addDays(parseLocalIso(iso), days), "yyyy-MM-dd");
+}
+
+/** Monday of the ISO week that contains `iso`. */
+export function weekStartMonday(iso: string): string {
+  return format(startOfWeek(parseLocalIso(iso), { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+/** Monday–Sunday window for a logged offline-leads week. */
+export function weekEndFromStart(weekStart: string): string {
+  return format(endOfWeek(parseLocalIso(weekStart), { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+export function weekOverlapsRange(weekStart: string, range: DateRange): boolean {
+  const weekEnd = weekEndFromStart(weekStart);
+  return weekStart <= range.end && weekEnd >= range.start;
 }
 
 export function utcTodayIso(): string {
