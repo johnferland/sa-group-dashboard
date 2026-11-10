@@ -133,7 +133,9 @@ export default async function AdminPage({
                 <h3 className="ds-heading-sm">Web leads webhook</h3>
                 <TextMuted>
                   Point the website form (or Zapier) here. POST JSON or form fields: first_name, last_name,
-                  email, date, attribution, count. Header <code>X-Webhook-Secret</code>.
+                  email, date, attribution, count. Nested <code>fields</code> also work — Your Name is split
+                  into first/last, Your Email and Lead Source map automatically. Header{" "}
+                  <code>X-Webhook-Secret</code>.
                 </TextMuted>
                 <div className="ds-form-grid">
                   <Field label="Webhook URL">

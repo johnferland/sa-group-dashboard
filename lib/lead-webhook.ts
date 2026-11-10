@@ -5,12 +5,53 @@ export function asRecord(value: unknown): LeadPayload {
   return {};
 }
 
+function asRecordOrJson(value: unknown): LeadPayload {
+  if (typeof value === "string") {
+    try {
+      return asRecord(JSON.parse(value));
+    } catch {
+      return {};
+    }
+  }
+  return asRecord(value);
+}
+
+function leadScalar(value: unknown): string | null {
+  if (value == null || typeof value === "object") return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+/** "Fields Your Name" / "Your Name" → your_name */
+export function normalizeLeadKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^fields_/, "")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
+}
+
+export function flattenLeadPayload(body: LeadPayload): LeadPayload {
+  const merged: LeadPayload = { ...body };
+  for (const nested of [body.fields, body.Fields]) {
+    const record = asRecordOrJson(nested);
+    for (const [key, value] of Object.entries(record)) {
+      if (merged[key] == null || merged[key] === "") merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 export function pickLeadField(body: LeadPayload, keys: string[]): string | null {
+  const entries = Object.entries(flattenLeadPayload(body)).map(
+    ([name, value]) => [normalizeLeadKey(name), value] as const,
+  );
   for (const key of keys) {
-    const direct = body[key];
-    if (direct != null && String(direct).trim()) return String(direct).trim();
-    const lower = Object.entries(body).find(([name]) => name.toLowerCase().replace(/[\s-]/g, "_") === key);
-    if (lower?.[1] != null && String(lower[1]).trim()) return String(lower[1]).trim();
+    const want = normalizeLeadKey(key);
+    const hit = entries.find(([name]) => name === want);
+    const text = leadScalar(hit?.[1]);
+    if (text) return text;
   }
   return null;
 }
@@ -28,6 +69,14 @@ export function splitFullName(value: string | null): { first: string | null; las
   if (parts.length === 0) return { first: null, last: null };
   if (parts.length === 1) return { first: parts[0], last: null };
   return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function nameFromObject(value: unknown): { first: string | null; last: string | null } | null {
+  const record = asRecord(value);
+  const first = leadScalar(record.first ?? record.first_name ?? record.First);
+  const last = leadScalar(record.last ?? record.last_name ?? record.Last);
+  if (!first && !last) return null;
+  return { first, last };
 }
 
 export async function readLeadWebhookBody(request: Request): Promise<LeadPayload> {
@@ -94,19 +143,29 @@ export function parseLeadInsert(
   body: LeadPayload,
   defaults?: { source?: string | null; attribution?: string | null },
 ): ParsedLeadInsert {
-  const full = splitFullName(pickLeadField(body, ["full_name", "fullname", "name"]));
+  const payload = flattenLeadPayload(body);
+  let named: { first: string | null; last: string | null } | null = null;
+  for (const [key, value] of Object.entries(payload)) {
+    const normalized = normalizeLeadKey(key);
+    if (normalized !== "your_name" && normalized !== "full_name" && normalized !== "name") continue;
+    named = nameFromObject(value);
+    if (named) break;
+  }
+  const full = splitFullName(
+    pickLeadField(payload, ["full_name", "fullname", "your_name", "your-name", "name"]),
+  );
   return {
-    source: pickLeadField(body, ["source"]) ?? defaults?.source ?? null,
+    source: pickLeadField(payload, ["source"]) ?? defaults?.source ?? null,
     attribution:
-      pickLeadField(body, ["attribution", "utm_source", "lead_source", "source"]) ??
+      pickLeadField(payload, ["attribution", "utm_source", "lead_source", "source"]) ??
       defaults?.attribution ??
       null,
     firstName:
-      pickLeadField(body, ["first_name", "firstname", "first-name", "your-name", "your_name"]) ?? full.first,
-    lastName: pickLeadField(body, ["last_name", "lastname", "last-name"]) ?? full.last,
-    email: pickLeadField(body, ["email", "your-email", "your_email", "email_address"]),
+      pickLeadField(payload, ["first_name", "firstname", "first-name"]) ?? named?.first ?? full.first,
+    lastName: pickLeadField(payload, ["last_name", "lastname", "last-name"]) ?? named?.last ?? full.last,
+    email: pickLeadField(payload, ["email", "your_email", "your-email", "email_address"]),
     submittedAt: parseSubmittedAt(
-      pickLeadField(body, ["date", "submitted_at", "submitted-at", "created_at", "created_time"]),
+      pickLeadField(payload, ["date", "submitted_at", "submitted-at", "created_at", "created_time"]),
     ),
   };
 }
